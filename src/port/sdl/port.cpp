@@ -877,9 +877,9 @@ void Rumble_Init() {
 		device = Shake_Open(0);
 
 		Shake_InitEffect(&effect_small, SHAKE_EFFECT_RUMBLE);
-		effect_small.u.rumble.strongMagnitude = SHAKE_RUMBLE_STRONG_MAGNITUDE_MAX * 0.85f;
+		effect_small.u.rumble.strongMagnitude = SHAKE_RUMBLE_STRONG_MAGNITUDE_MAX * 0.63f;
 		effect_small.u.rumble.weakMagnitude = SHAKE_RUMBLE_WEAK_MAGNITUDE_MAX;
-		effect_small.length = 17;
+		effect_small.length = 20;
 		effect_small.delay = 0;
 
 		Shake_InitEffect(&effect_big, SHAKE_EFFECT_RUMBLE);
