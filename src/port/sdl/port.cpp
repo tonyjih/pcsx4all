@@ -884,8 +884,8 @@ void Rumble_Init() {
 		for(int i = 0; i < 16; i++)
 		{
 			Shake_InitEffect(&temp_effect, SHAKE_EFFECT_RUMBLE);
-			temp_effect.u.rumble.strongMagnitude = SHAKE_RUMBLE_STRONG_MAGNITUDE_MAX * (0.4f + 0.0375f * (i + 1));
-			temp_effect.u.rumble.weakMagnitude = SHAKE_RUMBLE_WEAK_MAGNITUDE_MAX;
+			temp_effect.u.rumble.strongMagnitude = SHAKE_RUMBLE_STRONG_MAGNITUDE_MAX * (0.6f + 0.0375f * (i + 1));
+			temp_effect.u.rumble.weakMagnitude = SHAKE_RUMBLE_WEAK_MAGNITUDE_MAX * (0.2f + 0.0375f * (i + 1));
 			temp_effect.length = 17;
 			temp_effect.delay = 0;
 			id_shake_level[i] = Shake_UploadEffect(device, &temp_effect);
