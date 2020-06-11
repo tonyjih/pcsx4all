@@ -410,8 +410,13 @@ static int gui_LoadIso();
 static int gui_Settings();
 static int gui_GPUSettings();
 static int gui_SPUSettings();
+static int gui_InputSettings();
 static int gui_Cheats();
 static int gui_Quit();
+static int gui_input_native();
+static int gui_input_hotkeys();
+static int gui_input_js1();
+static int gui_input_js2();
 
 static int gui_Credits()
 {
@@ -463,6 +468,7 @@ static MENUITEM gui_MainMenuItems[] = {
 	{(char *)"Core settings", &gui_Settings, NULL, NULL, NULL},
 	{(char *)"GPU settings", &gui_GPUSettings, NULL, NULL, NULL},
 	{(char *)"SPU settings", &gui_SPUSettings, NULL, NULL, NULL},
+	{(char *)"Input settings", &gui_InputSettings, NULL, NULL, NULL},
 	{(char *)"Credits", &gui_Credits, NULL, NULL, NULL},
 	{(char *)"Quit", &gui_Quit, NULL, NULL, NULL},
 	{0}
@@ -1038,6 +1044,7 @@ static MENUITEM gui_GameMenuItems[] =
   {(char *)"GPU settings", &gui_GPUSettings, NULL, NULL, NULL},
   {(char *)"SPU settings", &gui_SPUSettings, NULL, NULL, NULL},
   {(char *)"Core settings", &gui_Settings, NULL, NULL, NULL},
+  {(char *)"Input settings", &gui_InputSettings, NULL, NULL, NULL},
   {(char *)"Quit", &gui_Quit, NULL, NULL, NULL},
   {0}
 };
@@ -1049,6 +1056,7 @@ static MENUITEM gui_GameMenuItems_WithCheats[] =
   {(char *)"GPU settings", &gui_GPUSettings, NULL, NULL, NULL},
   {(char *)"SPU settings", &gui_SPUSettings, NULL, NULL, NULL},
   {(char *)"Core settings", &gui_Settings, NULL, NULL, NULL},
+  {(char *)"Input settings", &gui_InputSettings, NULL, NULL, NULL},
   {(char *)"Cheats", &gui_Cheats, NULL, NULL, NULL},
   {(char *)"Quit", &gui_Quit, NULL, NULL, NULL},
   {0}
@@ -1057,6 +1065,8 @@ static MENUITEM gui_GameMenuItems_WithCheats[] =
 #define GMENU_SIZE ((sizeof(gui_GameMenuItems) / sizeof(MENUITEM)) - 1)
 #define GMENUWC_SIZE ((sizeof(gui_GameMenuItems_WithCheats) / sizeof(MENUITEM)) - 1)
 static MENU gui_GameMenu = { GMENU_SIZE, 0, 102, 120, (MENUITEM *)&gui_GameMenuItems };
+
+/***** core settings *****/
 
 #ifdef PSXREC
 static int emu_alter(u32 keys)
@@ -1346,8 +1356,6 @@ static MENUITEM gui_SettingsItems[] = {
 	{(char *)"HLE emulated BIOS  ", NULL, &bios_alter, &bios_show, NULL},
 	{(char *)"Set BIOS file      ", &bios_set, NULL, &bios_file_show, NULL},
 	{(char *)"Skip BIOS logos    ", NULL, &SlowBoot_alter, &SlowBoot_show, &SlowBoot_hint},
-	{(char *)"Map L-stick to Dpad", NULL, &AnalogArrow_alter, &AnalogArrow_show, &AnalogArrow_hint},
-	{(char *)"Analog Mode        ", NULL, &Analog_Mode_alter, &Analog_Mode_show, &Analog_Mode_hint},
 	{(char *)"RCntFix            ", NULL, &RCntFix_alter, &RCntFix_show, &RCntFix_hint},
 	{(char *)"VSyncWA            ", NULL, &VSyncWA_alter, &VSyncWA_show, &VSyncWA_hint},
 	{(char *)"Memory card Slot1  ", NULL, &McdSlot1_alter, &McdSlot1_show, NULL},
@@ -1869,6 +1877,82 @@ static MENUITEM gui_SPUSettingsItems[] = {
 #define SET_SPUSIZE ((sizeof(gui_SPUSettingsItems) / sizeof(MENUITEM)) - 1)
 static MENU gui_SPUSettingsMenu = { SET_SPUSIZE, 0, 56, 102, (MENUITEM *)&gui_SPUSettingsItems };
 
+
+/***** input settings *****/
+
+// input menu
+static MENUITEM gui_InputItems[] = {
+  {(char *)"Native buttons", &gui_input_native, NULL, NULL, NULL},
+  {(char *)"Hotkeys", &gui_input_hotkeys, NULL, NULL, NULL},
+  {(char *)"Joystick 1", &gui_input_js1, NULL, NULL, NULL},
+  {(char *)"Joystick 2", &gui_input_js2, NULL, NULL, NULL},
+	{0}
+};
+#define SET_INPUT_SIZE ((sizeof(gui_InputItems) / sizeof(MENUITEM)) - 1)
+static MENU gui_InputMenu = { SET_INPUT_SIZE, 0, 56, 120, (MENUITEM *)&gui_InputItems };
+
+// native buttons menu
+static MENUITEM gui_input_NativeItems[] = {
+	{(char *)"Map L-stick to Dpad  ", NULL, &AnalogArrow_alter, &AnalogArrow_show, &AnalogArrow_hint},
+	{(char *)"Analog Mode          ", NULL, &Analog_Mode_alter, &Analog_Mode_show, &Analog_Mode_hint},
+	{(char *)"Map buttons          ", NULL, NULL, NULL, NULL},
+	{0}
+};
+#define SET_INPUT_NATIVE_SIZE ((sizeof(gui_input_NativeItems) / sizeof(MENUITEM)) - 1)
+static MENU gui_input_NativeMenu = { SET_INPUT_NATIVE_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_NativeItems };
+
+// hotkeys menu
+static MENUITEM gui_input_HotkeysItems[] = {
+  {(char *)"Not implemented yet", NULL, NULL, NULL, NULL},
+	{0}
+};
+#define SET_INPUT_HOTKEYS_SIZE ((sizeof(gui_input_HotkeysItems) / sizeof(MENUITEM)) - 1)
+static MENU gui_input_HotkeysMenu = { SET_INPUT_HOTKEYS_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_HotkeysItems };
+
+// external joystick js1 menu
+static MENUITEM gui_input_JS1Items[] = {
+	{(char *)"Mapped to Player        ", NULL, NULL, NULL, NULL},
+	{(char *)"Analog sticks deadzone  ", NULL, NULL, NULL, NULL},
+	{(char *)"Map buttons             ", NULL, NULL, NULL, NULL},
+	{0}
+};
+#define SET_INPUT_JS1_SIZE ((sizeof(gui_input_JS1Items) / sizeof(MENUITEM)) - 1)
+static MENU gui_input_JS1Menu = { SET_INPUT_JS1_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_JS1Items };
+
+// external joystick js2 menu
+static MENUITEM gui_input_JS2Items[] = {
+	{(char *)"Mapped to Player        ", NULL, NULL, NULL, NULL},
+	{(char *)"Analog sticks deadzone  ", NULL, NULL, NULL, NULL},
+	{(char *)"Map buttons             ", NULL, NULL, NULL, NULL},
+	{0}
+};
+#define SET_INPUT_JS2_SIZE ((sizeof(gui_input_JS2Items) / sizeof(MENUITEM)) - 1)
+static MENU gui_input_JS2Menu = { SET_INPUT_JS2_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_JS2Items };
+
+
+static int gui_input_native() {
+	gui_RunMenu(&gui_input_NativeMenu);
+	return 0;
+}
+
+static int gui_input_hotkeys() {
+	gui_RunMenu(&gui_input_HotkeysMenu);
+	return 0;
+}
+
+static int gui_input_js1() {
+	gui_RunMenu(&gui_input_JS1Menu);
+	return 0;
+}
+
+static int gui_input_js2() {
+	gui_RunMenu(&gui_input_JS2Menu);
+	return 0;
+}
+
+
+/***** Main Menu settings *****/
+
 static int gui_LoadIso()
 {
 	static char isoname[PATH_MAX];
@@ -1884,6 +1968,12 @@ static int gui_LoadIso()
 		return 1;
 	}
 
+	return 0;
+}
+
+static int gui_InputSettings()
+{
+	gui_RunMenu(&gui_InputMenu);
 	return 0;
 }
 
