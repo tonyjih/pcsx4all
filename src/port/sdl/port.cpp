@@ -57,6 +57,26 @@ enum {
 	DKEY_TOTAL
 };
 
+// the index is the SDL id of the button
+uint8_t joystick_config[] = {
+	DKEY_TRIANGLE,	// 0
+	DKEY_CIRCLE,
+	DKEY_CROSS,
+	DKEY_SQUARE,
+	DKEY_L1,
+	DKEY_R1,
+	DKEY_L2,
+	DKEY_R2,
+	DKEY_SELECT,
+	DKEY_START,
+	DKEY_L3,
+	DKEY_R3,
+	DKEY_UP, 		// 12
+	DKEY_RIGHT,		// 13
+	DKEY_DOWN,		// 14
+	DKEY_LEFT		// 15
+};
+
 static SDL_Surface *screen;
 unsigned short *SCREEN;
 int SCREEN_WIDTH = 640, SCREEN_HEIGHT = 480;
@@ -567,7 +587,8 @@ static uint16_t pad1_buttons = 0xFFFF;
 
 static unsigned short analog1 = 0;
 
-SDL_Joystick* sdl_joy[2];
+// 0 for native sticks, 1 for external js1, 2 for external js2
+SDL_Joystick* sdl_joy[3];
 
 #define joy_commit_range    8192
 enum {
@@ -608,9 +629,9 @@ void Set_Controller_Mode()
 
 void joy_init()
 {
-
 	sdl_joy[0] = SDL_JoystickOpen(0);
 	sdl_joy[1] = SDL_JoystickOpen(1);
+	sdl_joy[2] = SDL_JoystickOpen(2);
 
 	player_controller[0].joy_left_ax0 = 127;
 	player_controller[0].joy_left_ax1 = 127;
@@ -635,24 +656,16 @@ void pad_update()
 {
 	int axisval;
 	SDL_Event event;
-	Uint8 *keys = SDL_GetKeyState(NULL);
 	bool popup_menu = false;
-
-	int k = 0;
-	while (keymap[k].key) {
-		if (keys[keymap[k].key]) {
-			pad1_buttons &= ~(1 << keymap[k].bit);
-		} else {
-			pad1_buttons |= (1 << keymap[k].bit);
-		}
-		k++;
-	}
+	uint_fast8_t i;
 
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_QUIT:
 			exit(0);
 			break;
+
+		// get native buttons press
 		case SDL_KEYDOWN:
 			switch (event.key.keysym.sym) {
 			case SDLK_HOME:
@@ -661,15 +674,41 @@ void pad_update()
 				break;
 #ifndef GCW_ZERO
 			case SDLK_ESCAPE:
-#endif
 				event.type = SDL_QUIT;
 				SDL_PushEvent(&event);
 				break;
-			case SDLK_v: { Config.ShowFps=!Config.ShowFps; } break;
-				default: break;
+#endif
+			case SDLK_v:
+				Config.ShowFps=!Config.ShowFps;
+				break;
+			default:
+				for (i = 0; i < DKEY_TOTAL; i++)
+					if (event.key.keysym.sym == keymap[i].key)
+					{
+						pad1_buttons &= ~(1 << keymap[i].bit);
+						break;
+					}
+				break;
 			}
 			break;
+
+		// native buttons release
+		case SDL_KEYUP:
+			for (i = 0; i < DKEY_TOTAL; i++)
+				if (event.key.keysym.sym == keymap[i].key)
+				{
+					pad1_buttons |= (1 << keymap[i].bit);
+					break;
+				}
+			break;
+
+		// analog sticks
 		case SDL_JOYAXISMOTION:
+			pad1_buttons |= (1 << DKEY_UP);
+			pad1_buttons |= (1 << DKEY_DOWN);
+			pad1_buttons |= (1 << DKEY_LEFT);
+			pad1_buttons |= (1 << DKEY_RIGHT);
+
 			switch (event.jaxis.axis) {
 			case 0: /* X axis */
 				axisval = event.jaxis.value;
@@ -707,12 +746,27 @@ void pad_update()
 				break;
 			}
 			break;
+
+		// USB joystick buttons
 		case SDL_JOYBUTTONDOWN:
-			if (event.jbutton.which == 0) {
-				pad1_buttons |= (1 << DKEY_L3);
-			} else if (event.jbutton.which == 1) {
-				pad1_buttons |= (1 << DKEY_R3);
-			}
+			pad1_buttons &= ~(1 << joystick_config[event.jbutton.button]);
+			break;
+		case SDL_JOYBUTTONUP:
+			pad1_buttons |= (1 << joystick_config[event.jbutton.button]);
+			break;
+
+		// USB joystick D-pad (HAT)
+		case SDL_JOYHATMOTION:
+			// reset hat
+			pad1_buttons |= (1 << DKEY_UP);
+			pad1_buttons |= (1 << DKEY_DOWN);
+			pad1_buttons |= (1 << DKEY_LEFT);
+			pad1_buttons |= (1 << DKEY_RIGHT);
+			// get pressed direction(s)
+			if (event.jhat.value & SDL_HAT_UP)    pad1_buttons &= ~(1 << joystick_config[12]);
+			if (event.jhat.value & SDL_HAT_RIGHT) pad1_buttons &= ~(1 << joystick_config[13]);
+			if (event.jhat.value & SDL_HAT_DOWN)  pad1_buttons &= ~(1 << joystick_config[14]);
+			if (event.jhat.value & SDL_HAT_LEFT)  pad1_buttons &= ~(1 << joystick_config[15]);
 			break;
 		default: break;
 		}
