@@ -11,6 +11,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <assert.h>
+#include <SDL.h>
 
 struct ps1_controller {
 	uint8_t id;
@@ -23,9 +24,13 @@ struct ps1_controller {
 	uint8_t pad_mode;
 	uint8_t pad_controllertype;
 	uint8_t configmode;
+	uint8_t player;				// player-1: 0, player-2: 1
+	uint_least8_t but_map[16];	// mapping of SDL buttons, the index is the SDL id of the button
+	SDL_Joystick* sdl_joy;		// used for native analog sticks and USB joysticks
 };
 
-extern struct ps1_controller player_controller[2];
+// 0 for native sticks, 1 for external js1, 2 for external js2
+extern struct ps1_controller controllers[3];
 
 ///////////////////////////
 // Windows compatibility //

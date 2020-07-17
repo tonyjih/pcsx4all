@@ -57,26 +57,6 @@ enum {
 	DKEY_TOTAL
 };
 
-// the index is the SDL id of the button
-uint8_t joystick_config[] = {
-	DKEY_TRIANGLE,	// 0
-	DKEY_CIRCLE,
-	DKEY_CROSS,
-	DKEY_SQUARE,
-	DKEY_L1,
-	DKEY_R1,
-	DKEY_L2,
-	DKEY_R2,
-	DKEY_SELECT,
-	DKEY_START,
-	DKEY_L3,
-	DKEY_R3,
-	DKEY_UP, 		// 12
-	DKEY_RIGHT,		// 13
-	DKEY_DOWN,		// 14
-	DKEY_LEFT		// 15
-};
-
 static SDL_Surface *screen;
 unsigned short *SCREEN;
 int SCREEN_WIDTH = 640, SCREEN_HEIGHT = 480;
@@ -579,16 +559,10 @@ static struct {
 	{ 0, 0 }
 };
 
-static uint16_t pad1 = 0xFFFF;
-
-static uint16_t pad2 = 0xFFFF;
-
-static uint16_t pad1_buttons = 0xFFFF;
-
-static unsigned short analog1 = 0;
-
-// 0 for native sticks, 1 for external js1, 2 for external js2
-SDL_Joystick* sdl_joy[3];
+// 0 for player 1, 1 for player 2
+static uint16_t pads[2] = {0xFFFF, 0xFFFF};
+static uint16_t pad_buttons[2] = {0xFFFF, 0xFFFF};
+static unsigned short analogs[2] = {0, 0};
 
 #define joy_commit_range    8192
 enum {
@@ -598,58 +572,83 @@ enum {
 	ANALOG_RIGHT = 8
 };
 
-struct ps1_controller player_controller[2];
+// 0 for native buttons/sticks, 1 for external js1, 2 for external js2
+struct ps1_controller controllers[3];
 
-void Set_Controller_Mode()
+void Set_Controller_Mode(uint_fast8_t i)
 {
 	switch (Config.AnalogMode) {
 		/* Digital. Required for some games. */
-	default: player_controller[0].id = 0x41;
-		player_controller[0].pad_mode = 0;
-		player_controller[0].pad_controllertype = PSE_PAD_TYPE_STANDARD;
+	default: controllers[i].id = 0x41;
+		controllers[i].pad_mode = 0;
+		controllers[i].pad_controllertype = PSE_PAD_TYPE_STANDARD;
 		break;
 		/* DualAnalog. Some games might misbehave with Dualshock like Descent so this is for those */
-	case 1: player_controller[0].id = 0x53;
-		player_controller[0].pad_mode = 1;
-		player_controller[0].pad_controllertype = PSE_PAD_TYPE_ANALOGPAD;
+	case 1: controllers[i].id = 0x53;
+		controllers[i].pad_mode = 1;
+		controllers[i].pad_controllertype = PSE_PAD_TYPE_ANALOGPAD;
 		break;
 		/* DualShock, required for Ape Escape. */
 	case 2: 
-		player_controller[0].id = 0x41;
-		player_controller[0].pad_mode = 0;
-		player_controller[0].pad_controllertype = PSE_PAD_TYPE_ANALOGPAD;
+		controllers[i].id = 0x41;
+		controllers[i].pad_mode = 0;
+		controllers[i].pad_controllertype = PSE_PAD_TYPE_ANALOGPAD;
 		break;
 	case 3: 
-		player_controller[0].id = 0x73;
-		player_controller[0].pad_mode = 1;
-		player_controller[0].pad_controllertype = PSE_PAD_TYPE_ANALOGPAD;
+		controllers[i].id = 0x73;
+		controllers[i].pad_mode = 1;
+		controllers[i].pad_controllertype = PSE_PAD_TYPE_ANALOGPAD;
 		break;
 	}
 }
 
+void joy_map_read(uint8_t i) {
+	controllers[0].player = 0;
+	controllers[1].player = 1;
+	controllers[i].but_map[0] = DKEY_TRIANGLE;
+	controllers[i].but_map[1] = DKEY_CIRCLE;
+	controllers[i].but_map[2] = DKEY_CROSS;
+	controllers[i].but_map[3] = DKEY_SQUARE;
+	controllers[i].but_map[4] = DKEY_L1;
+	controllers[i].but_map[5] = DKEY_R1;
+	controllers[i].but_map[6] = DKEY_L2;
+	controllers[i].but_map[7] = DKEY_R2;
+	controllers[i].but_map[8] = DKEY_SELECT;
+	controllers[i].but_map[9] = DKEY_START;
+	controllers[i].but_map[10] = DKEY_L3;
+	controllers[i].but_map[11] = DKEY_R3;
+	controllers[i].but_map[12] = DKEY_UP;
+	controllers[i].but_map[13] = DKEY_RIGHT;
+	controllers[i].but_map[14] = DKEY_DOWN;
+	controllers[i].but_map[15] = DKEY_LEFT;
+}
+
 void joy_init()
 {
-	sdl_joy[0] = SDL_JoystickOpen(0);
-	sdl_joy[1] = SDL_JoystickOpen(1);
-	sdl_joy[2] = SDL_JoystickOpen(2);
+	for(uint8_t i = 0; i<3; i++) {
+		// init SDL joystick
+		controllers[i].sdl_joy = SDL_JoystickOpen(i);
 
-	player_controller[0].joy_left_ax0 = 127;
-	player_controller[0].joy_left_ax1 = 127;
-	player_controller[0].joy_right_ax0 = 127;
-	player_controller[0].joy_right_ax1 = 127;
+		// init analog axis
+		controllers[i].joy_left_ax0 = 127;
+		controllers[i].joy_left_ax1 = 127;
+		controllers[i].joy_right_ax0 = 127;
+		controllers[i].joy_right_ax1 = 127;
 
-	player_controller[0].Vib[0] = 0;
-	player_controller[0].Vib[1] = 0;
-	player_controller[0].VibF[0] = 0;
-	player_controller[0].VibF[1] = 0;
+		// init vibration
+		controllers[i].Vib[0] = 0;
+		controllers[i].Vib[1] = 0;
+		controllers[i].VibF[0] = 0;
+		controllers[i].VibF[1] = 0;
 
-	//player_controller[0].id = 0x41;
-	//player_controller[0].pad_mode = 0;
-	//player_controller[0].pad_controllertype = 0;
+		controllers[i].configmode = 0;
 
-	player_controller[0].configmode = 0;
+		// config analog mode according to game
+		Set_Controller_Mode(i);
 
-	Set_Controller_Mode();
+		// read button mapping
+		joy_map_read(i);
+	}
 }
 
 void pad_update()
@@ -658,6 +657,7 @@ void pad_update()
 	SDL_Event event;
 	bool popup_menu = false;
 	uint_fast8_t i;
+	struct ps1_controller *controller;
 
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
@@ -685,7 +685,7 @@ void pad_update()
 				for (i = 0; i < DKEY_TOTAL; i++)
 					if (event.key.keysym.sym == keymap[i].key)
 					{
-						pad1_buttons &= ~(1 << keymap[i].bit);
+						pad_buttons[0] &= ~(1 << keymap[i].bit);
 						break;
 					}
 				break;
@@ -697,93 +697,107 @@ void pad_update()
 			for (i = 0; i < DKEY_TOTAL; i++)
 				if (event.key.keysym.sym == keymap[i].key)
 				{
-					pad1_buttons |= (1 << keymap[i].bit);
+					pad_buttons[0] |= (1 << keymap[i].bit);
 					break;
 				}
 			break;
 
 		// analog sticks
 		case SDL_JOYAXISMOTION:
-			pad1_buttons |= (1 << DKEY_UP);
-			pad1_buttons |= (1 << DKEY_DOWN);
-			pad1_buttons |= (1 << DKEY_LEFT);
-			pad1_buttons |= (1 << DKEY_RIGHT);
+			controllers[0].player = 0; // WHY ?
+			controllers[1].player = 1;
+			controller = &controllers[event.jaxis.which];
+			axisval = event.jaxis.value;
+
+			// printf("AXIS event.jaxis.value %d\n", event.jaxis.value);
+			// printf("AXIS event.jaxis.which %d\n", event.jaxis.which);
+			// printf("AXIS controller->player %d\n\n", controller->player);
+
+			pad_buttons[controller->player] |= (1 << DKEY_UP);
+			pad_buttons[controller->player] |= (1 << DKEY_DOWN);
+			pad_buttons[controller->player] |= (1 << DKEY_LEFT);
+			pad_buttons[controller->player] |= (1 << DKEY_RIGHT);
 
 			switch (event.jaxis.axis) {
 			case 0: /* X axis */
-				axisval = event.jaxis.value;
 				if (Config.AnalogArrow == 1) {
-					analog1 &= ~(ANALOG_LEFT | ANALOG_RIGHT);
+					analogs[controller->player] &= ~(ANALOG_LEFT | ANALOG_RIGHT);
 					if (axisval > joy_commit_range) {
-						analog1 |= ANALOG_RIGHT;
+						analogs[controller->player] |= ANALOG_RIGHT;
 					} else if (axisval < -joy_commit_range) {
-						analog1 |= ANALOG_LEFT;
+						analogs[controller->player] |= ANALOG_LEFT;
 					}
 				} else {
-					player_controller[0].joy_left_ax0 = (axisval + 0x8000) >> 8;
+					controller->joy_left_ax0 = (axisval + 0x8000) >> 8;
 				}
 				break;
 			case 1: /* Y axis */
-				axisval = event.jaxis.value;
 				if (Config.AnalogArrow == 1) {
-					analog1 &= ~(ANALOG_UP | ANALOG_DOWN);
+					analogs[controller->player] &= ~(ANALOG_UP | ANALOG_DOWN);
 					if (axisval > joy_commit_range) {
-						analog1 |= ANALOG_DOWN;
+						analogs[controller->player] |= ANALOG_DOWN;
 					} else if (axisval < -joy_commit_range) {
-						analog1 |= ANALOG_UP;
+						analogs[controller->player] |= ANALOG_UP;
 					}
 				} else {
-					player_controller[0].joy_left_ax1 = (axisval + 0x8000) >> 8;
+					controller->joy_left_ax1 = (axisval + 0x8000) >> 8;
 				}
 				break;
 			case 2: /* X axis */
-				axisval = event.jaxis.value;
-				player_controller[0].joy_right_ax0 = (axisval + 0x8000) >> 8;
+				controller->joy_right_ax0 = (axisval + 0x8000) >> 8;
 				break;
 			case 3: /* Y axis */
-				axisval = event.jaxis.value;
-				player_controller[0].joy_right_ax1 = (axisval + 0x8000) >> 8;
+				controller->joy_right_ax1 = (axisval + 0x8000) >> 8;
 				break;
 			}
 			break;
 
 		// USB joystick buttons
 		case SDL_JOYBUTTONDOWN:
-			pad1_buttons &= ~(1 << joystick_config[event.jbutton.button]);
+			controller = &controllers[event.jbutton.which];
+			// printf("DOWN event.jbutton.which %d\n", event.jbutton.which);
+			// printf("DOWN controller->player %d\n", controller->player);
+			// printf("DOWN event.jbutton.button %d\n", event.jbutton.button);
+			// printf("DOWN controller->but_map[event.jbutton.button] %d\n", controller->but_map[event.jbutton.button]);
+			pad_buttons[controller->player] &= ~(1 << controller->but_map[event.jbutton.button]);
 			break;
 		case SDL_JOYBUTTONUP:
-			pad1_buttons |= (1 << joystick_config[event.jbutton.button]);
+			controller = &controllers[event.jbutton.which];
+			pad_buttons[controller->player] |= (1 << controller->but_map[event.jbutton.button]);
 			break;
 
 		// USB joystick D-pad (HAT)
 		case SDL_JOYHATMOTION:
+			controller = &controllers[event.jbutton.which];
 			// reset hat
-			pad1_buttons |= (1 << DKEY_UP);
-			pad1_buttons |= (1 << DKEY_DOWN);
-			pad1_buttons |= (1 << DKEY_LEFT);
-			pad1_buttons |= (1 << DKEY_RIGHT);
+			pad_buttons[controller->player] |= (1 << DKEY_UP);
+			pad_buttons[controller->player] |= (1 << DKEY_DOWN);
+			pad_buttons[controller->player] |= (1 << DKEY_LEFT);
+			pad_buttons[controller->player] |= (1 << DKEY_RIGHT);
 			// get pressed direction(s)
-			if (event.jhat.value & SDL_HAT_UP)    pad1_buttons &= ~(1 << joystick_config[12]);
-			if (event.jhat.value & SDL_HAT_RIGHT) pad1_buttons &= ~(1 << joystick_config[13]);
-			if (event.jhat.value & SDL_HAT_DOWN)  pad1_buttons &= ~(1 << joystick_config[14]);
-			if (event.jhat.value & SDL_HAT_LEFT)  pad1_buttons &= ~(1 << joystick_config[15]);
+			if (event.jhat.value & SDL_HAT_UP)    pad_buttons[controller->player] &= ~(1 << controller->but_map[12]);
+			if (event.jhat.value & SDL_HAT_RIGHT) pad_buttons[controller->player] &= ~(1 << controller->but_map[13]);
+			if (event.jhat.value & SDL_HAT_DOWN)  pad_buttons[controller->player] &= ~(1 << controller->but_map[14]);
+			if (event.jhat.value & SDL_HAT_LEFT)  pad_buttons[controller->player] &= ~(1 << controller->but_map[15]);
 			break;
 		default: break;
 		}
 	}
 
-	if (Config.AnalogArrow == 1) {
-		if ((pad1_buttons & (1 << DKEY_UP)) && (analog1 & ANALOG_UP)) {
-			pad1_buttons &= ~(1 << DKEY_UP);
-		}
-		if ((pad1_buttons & (1 << DKEY_DOWN)) && (analog1 & ANALOG_DOWN)) {
-			pad1_buttons &= ~(1 << DKEY_DOWN);
-		}
-		if ((pad1_buttons & (1 << DKEY_LEFT)) && (analog1 & ANALOG_LEFT)) {
-			pad1_buttons &= ~(1 << DKEY_LEFT);
-		}
-		if ((pad1_buttons & (1 << DKEY_RIGHT)) && (analog1 & ANALOG_RIGHT)) {
-			pad1_buttons &= ~(1 << DKEY_RIGHT);
+	for(i = 0; i<2; i++) {
+		if (Config.AnalogArrow == 1) {
+			if ((pad_buttons[i] & (1 << DKEY_UP)) && (analogs[i] & ANALOG_UP)) {
+				pad_buttons[i] &= ~(1 << DKEY_UP);
+			}
+			if ((pad_buttons[i] & (1 << DKEY_DOWN)) && (analogs[i] & ANALOG_DOWN)) {
+				pad_buttons[i] &= ~(1 << DKEY_DOWN);
+			}
+			if ((pad_buttons[i] & (1 << DKEY_LEFT)) && (analogs[i] & ANALOG_LEFT)) {
+				pad_buttons[i] &= ~(1 << DKEY_LEFT);
+			}
+			if ((pad_buttons[i] & (1 << DKEY_RIGHT)) && (analogs[i] & ANALOG_RIGHT)) {
+				pad_buttons[i] &= ~(1 << DKEY_RIGHT);
+			}
 		}
 	}
 
@@ -799,23 +813,24 @@ void pad_update()
 		update_window_size(320, 240, false);
 		GameMenu();
 		emu_running = true;
-		pad1_buttons |= (1 << DKEY_SELECT) | (1 << DKEY_START) | (1 << DKEY_CROSS);
+		pad_buttons[0] |= (1 << DKEY_SELECT) | (1 << DKEY_START) | (1 << DKEY_CROSS);
 		update_window_size(gpu.screen.hres, gpu.screen.vres, Config.PsxType == PSX_TYPE_NTSC);
 		if (Config.VideoScaling == 1) {
 			video_clear_cache();
 		}
 		emu_running = true;
-		pad1 |= (1 << DKEY_START);
-		pad1 |= (1 << DKEY_CROSS);
+		pads[0] |= (1 << DKEY_START);
+		pads[0] |= (1 << DKEY_CROSS);
 		pl_resume();    // Tell plugin_lib we're reentering emu
 	}
 
-	pad1 = pad1_buttons;
+	pads[0] = pad_buttons[0];
+	pads[1] = pad_buttons[1];
 }
 
 unsigned short pad_read(int num)
 {
-	return (num == 0 ? pad1 : pad2);
+	return pads[num];
 }
 
 void video_flip(void)

@@ -83,6 +83,7 @@ static unsigned int key_read(void)
 			default: break;
 			}
 			break;
+
 		case SDL_KEYUP:
 			switch(event.key.keysym.sym) {
 			case SDLK_UP:		ret &= ~KEY_UP;    break;
@@ -105,6 +106,11 @@ static unsigned int key_read(void)
 			default: break;
 			}
 			break;
+
+		case SDL_JOYBUTTONDOWN:
+			// external joysticks
+			ret |= KEY_B; break;
+
 		default: break;
 		}
 	}
@@ -1205,10 +1211,9 @@ static char* AnalogArrow_show()
 	return buf;
 }
 
-extern void Set_Controller_Mode();
+extern void Set_Controller_Mode(uint_fast8_t js);
 static int Analog_Mode_alter(u32 keys)
 {
-	
 	if (keys & KEY_RIGHT) {
 		Config.AnalogMode++;
 		if (Config.AnalogMode > 3) Config.AnalogMode = 3;
@@ -1216,7 +1221,7 @@ static int Analog_Mode_alter(u32 keys)
 		Config.AnalogMode--;
 		if (Config.AnalogMode < 1) Config.AnalogMode = 0;
 	}
-	Set_Controller_Mode();
+	Set_Controller_Mode(0);
 	return 0;
 }
 
