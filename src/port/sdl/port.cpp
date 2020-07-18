@@ -71,6 +71,11 @@ static bool last_keep_aspect = false;
 void config_load();
 void config_save();
 void update_window_size(int w, int h, bool ntsc_fix);
+void controller_config_load(int js_id);
+void controller_config_save(int js_id);
+void controller_profile_load(int js_id, int profile_id);
+void controller_profile_save(int profile_id, uint8_t *but_map);
+void print_controllers_info();
 
 static const char *KEEP_ASPECT_FILENAME = "/sys/devices/platform/jz-lcd.0/keep_aspect_ratio";
 
@@ -132,8 +137,10 @@ static char homedir[PATH_MAX] =		"./.pcsx4all";
 static char memcardsdir[PATH_MAX] =	"./.pcsx4all/memcards";
 static char biosdir[PATH_MAX] =		"./.pcsx4all/bios";
 static char patchesdir[PATH_MAX] =	"./.pcsx4all/patches";
-char sstatesdir[PATH_MAX] = "./.pcsx4all/sstates";
-char cheatsdir[PATH_MAX] = "./.pcsx4all/cheats";
+static char jsdir[PATH_MAX] =       "./.pcsx4all/js";
+static char profilesdir[PATH_MAX] = "./.pcsx4all/js/profiles";
+char sstatesdir[PATH_MAX] =  "./.pcsx4all/sstates";
+char cheatsdir[PATH_MAX] =   "./.pcsx4all/cheats";
 
 static char McdPath1[MAXPATHLEN] = "";
 static char McdPath2[MAXPATHLEN] = "";
@@ -147,6 +154,8 @@ static char BiosFile[MAXPATHLEN] = "";
 
 static void setup_paths()
 {
+	char fname[MAXPATHLEN];
+
 #ifndef __WIN32__
 	home = getenv("HOME");
 #else
@@ -160,14 +169,58 @@ static void setup_paths()
 		sprintf(biosdir, "%s/bios", homedir);
 		sprintf(patchesdir, "%s/patches", homedir);
 		sprintf(cheatsdir, "%s/cheats", homedir);
+		sprintf(jsdir, "%s/js", homedir);
+		sprintf(profilesdir, "%s/profiles", jsdir);
 	}
 
+	// create all necessary dirs
 	MKDIR(homedir);
 	MKDIR(sstatesdir);
 	MKDIR(memcardsdir);
 	MKDIR(biosdir);
 	MKDIR(patchesdir);
 	MKDIR(cheatsdir);
+	MKDIR(jsdir);
+	MKDIR(profilesdir);
+
+	// create default controller cfg files
+	for(int i = 0; i < MAX_CONTROLLERS; i++) {
+		sprintf(fname, "%s/js%d.cfg", jsdir, i);
+		if(access(fname, F_OK) == -1) {
+			// player 1, deadzone of 30% and button profile 0 (default)
+			controllers[i].player = 0;
+			controllers[i].analog_deadzone = 30;
+			controllers[i].but_profile_id = 0;
+			controller_config_save(i);
+		}
+	}
+
+	// create default controller profile files
+	for(int i = 0; i < MAX_JS_PROFILES; i++) {
+		sprintf(fname, "%s/profile%d.cfg", profilesdir, i);
+		if(access(fname, F_OK) == -1) {
+			// default configuration: button 0 = triangle, button 1 = circle ...
+			uint_least8_t but_map[] = {
+				DKEY_TRIANGLE,
+				DKEY_CIRCLE,
+				DKEY_CROSS,
+				DKEY_SQUARE,
+				DKEY_L1,
+				DKEY_R1,
+				DKEY_L2,
+				DKEY_R2,
+				DKEY_SELECT,
+				DKEY_START,
+				DKEY_L3,
+				DKEY_R3,
+				DKEY_UP,
+				DKEY_RIGHT,
+				DKEY_DOWN,
+				DKEY_LEFT
+			};
+			controller_profile_save(i, but_map);
+		}
+	}
 }
 
 void probe_lastdir()
@@ -190,6 +243,96 @@ void probe_lastdir()
 #ifdef PSXREC
 extern u32 cycle_multiplier; // in mips/recompiler.cpp
 #endif
+
+void print_controllers_info() {
+	for(int i = 0; i<MAX_CONTROLLERS; i++) {
+		printf("----i=%d----\n", i);
+		printf("player: %d\n", controllers[i].player);
+		printf("but_profile_id: %d\n", controllers[i].but_profile_id);
+		printf("analog_deadzone: %d\n", controllers[i].analog_deadzone);
+	}
+	printf("\n\n");
+}
+
+void controller_profile_load(int js_id, int profile_id) {
+	char config[MAXPATHLEN];
+    FILE *f = NULL;
+	int button, value;
+
+    sprintf(config, "%s/profile%d.cfg", profilesdir, profile_id);
+	if((f = fopen(config, "r")) == NULL) {
+		printf("Failed to open config file: \"%s\" for reading.\n", config);
+		return;
+	}
+
+	if((fscanf(f, "JS_PROFILE_VERSION %d\n", &value) == 1) && (value == JS_PROFILE_VERSION)) {
+		while(fscanf(f, "SDL %d == PSX %d\n", &button, &value) == 2) {
+			// printf("SDL %d == PSX %d\n", button, value);
+			controllers[js_id].but_map[button] = (uint8_t) value;
+		}
+	}
+
+    fclose(f);
+}
+
+void controller_profile_save(int profile_id, uint8_t *but_map) {
+	char config[MAXPATHLEN];
+    FILE *f = NULL;
+
+    sprintf(config, "%s/profile%d.cfg", profilesdir, profile_id);
+	if((f = fopen(config, "w")) == NULL) {
+		printf("Failed to open config file: \"%s\" for writing.\n", config);
+		return;
+	}
+
+	fprintf(f, "JS_PROFILE_VERSION %d\n", JS_PROFILE_VERSION);
+	for(int i=0; i<MAX_JS_BUTTONS; i++) {
+		fprintf(f, "SDL %d == PSX %d\n", i, but_map[i]);
+	}
+
+    fclose(f);
+}
+
+void controller_config_load(int js_id) {
+	char config[MAXPATHLEN];
+    FILE *f = NULL;
+	int value;
+
+    sprintf(config, "%s/js%d.cfg", jsdir, js_id);
+	if((f = fopen(config, "r")) == NULL) {
+		printf("Failed to open config file: \"%s\" for reading.\n", config);
+		return;
+	}
+
+	if((fscanf(f, "JS_CONFIG_VERSION %d\n", &value) == 1) && (value == JS_CONFIG_VERSION)) {
+		if (fscanf(f, "player %d\n", &value) == 1)
+			controllers[js_id].player = value;
+		if (fscanf(f, "analog_deadzone %d\n", &value) == 1)
+			controllers[js_id].analog_deadzone = value;
+		if (fscanf(f, "but_profile_id %d\n", &value) == 1)
+			controllers[js_id].but_profile_id = value;
+	}
+
+    fclose(f);
+}
+
+void controller_config_save(int js_id) {
+	char config[MAXPATHLEN];
+    FILE *f = NULL;
+
+    sprintf(config, "%s/js%d.cfg", jsdir, js_id);
+	if((f = fopen(config, "w")) == NULL) {
+		printf("Failed to open config file: \"%s\" for writing.\n", config);
+		return;
+	}
+
+	fprintf(f, "JS_CONFIG_VERSION %d\n", JS_CONFIG_VERSION);
+	fprintf(f, "player %d\n", controllers[js_id].player);
+    fprintf(f, "analog_deadzone %d\n", controllers[js_id].analog_deadzone);
+    fprintf(f, "but_profile_id %d\n", controllers[js_id].but_profile_id);
+
+    fclose(f);
+}
 
 void config_load()
 {
@@ -573,7 +716,7 @@ enum {
 };
 
 // 0 for native buttons/sticks, 1 for external js1, 2 for external js2
-struct ps1_controller controllers[3];
+Ps1Controller controllers[MAX_CONTROLLERS];
 
 void Set_Controller_Mode(uint_fast8_t i)
 {
@@ -602,30 +745,9 @@ void Set_Controller_Mode(uint_fast8_t i)
 	}
 }
 
-void joy_map_read(uint8_t i) {
-	controllers[0].player = 0;
-	controllers[1].player = 1;
-	controllers[i].but_map[0] = DKEY_TRIANGLE;
-	controllers[i].but_map[1] = DKEY_CIRCLE;
-	controllers[i].but_map[2] = DKEY_CROSS;
-	controllers[i].but_map[3] = DKEY_SQUARE;
-	controllers[i].but_map[4] = DKEY_L1;
-	controllers[i].but_map[5] = DKEY_R1;
-	controllers[i].but_map[6] = DKEY_L2;
-	controllers[i].but_map[7] = DKEY_R2;
-	controllers[i].but_map[8] = DKEY_SELECT;
-	controllers[i].but_map[9] = DKEY_START;
-	controllers[i].but_map[10] = DKEY_L3;
-	controllers[i].but_map[11] = DKEY_R3;
-	controllers[i].but_map[12] = DKEY_UP;
-	controllers[i].but_map[13] = DKEY_RIGHT;
-	controllers[i].but_map[14] = DKEY_DOWN;
-	controllers[i].but_map[15] = DKEY_LEFT;
-}
-
 void joy_init()
 {
-	for(uint8_t i = 0; i<3; i++) {
+	for(int i = 0; i<MAX_CONTROLLERS; i++) {
 		// init SDL joystick
 		controllers[i].sdl_joy = SDL_JoystickOpen(i);
 
@@ -646,9 +768,14 @@ void joy_init()
 		// config analog mode according to game
 		Set_Controller_Mode(i);
 
-		// read button mapping
-		joy_map_read(i);
+		// load other configs from cfg file
+		controller_config_load(i);
+
+		// map buttons to profile
+		controller_profile_load(i, controllers[i].but_profile_id);
+
 	}
+	print_controllers_info();
 }
 
 void pad_update()
@@ -657,7 +784,7 @@ void pad_update()
 	SDL_Event event;
 	bool popup_menu = false;
 	uint_fast8_t i;
-	struct ps1_controller *controller;
+	Ps1Controller *controller;
 
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
@@ -704,8 +831,6 @@ void pad_update()
 
 		// analog sticks
 		case SDL_JOYAXISMOTION:
-			controllers[0].player = 0; // WHY ?
-			controllers[1].player = 1;
 			controller = &controllers[event.jaxis.which];
 			axisval = event.jaxis.value;
 
