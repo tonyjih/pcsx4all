@@ -109,6 +109,46 @@ static unsigned int key_read(void)
 			}
 			break;
 
+		case SDL_JOYBUTTONDOWN:
+			switch (event.jbutton.button) {
+				case 0: ret |= KEY_X; break;
+				case 1: ret |= KEY_A; break;
+				case 2:	ret |= KEY_B; break;
+				case 3: ret |= KEY_Y; break;
+				case 4: ret |= KEY_L; break;
+				case 5: ret |= KEY_R; break;
+				case 8: ret |= KEY_SELECT; break;
+				case 9: ret |= KEY_START; break;
+				default: break;
+			}
+			break;
+
+		case SDL_JOYBUTTONUP:
+			switch (event.jbutton.button) {
+				case 0: ret &= ~KEY_X; break;
+				case 1: ret &= ~KEY_A; break;
+				case 2:	ret &= ~KEY_B; break;
+				case 3: ret &= ~KEY_Y; break;
+				case 4: ret &= ~KEY_L; break;
+				case 5: ret &= ~KEY_R; break;
+				case 8: ret &= ~KEY_SELECT; break;
+				case 9: ret &= ~KEY_START; break;
+				default: break;
+			}
+			break;
+
+		case SDL_JOYHATMOTION:
+			// reset hat
+			ret &= ~KEY_UP;
+			ret &= ~KEY_DOWN;
+			ret &= ~KEY_LEFT;
+			ret &= ~KEY_RIGHT;
+			// get pressed direction(s)
+			if (event.jhat.value & SDL_HAT_UP)    ret |= KEY_UP;
+			if (event.jhat.value & SDL_HAT_RIGHT) ret |= KEY_RIGHT;
+			if (event.jhat.value & SDL_HAT_DOWN)  ret |= KEY_DOWN;
+			if (event.jhat.value & SDL_HAT_LEFT)  ret |= KEY_LEFT;
+			break;
 		default: break;
 		}
 	}
