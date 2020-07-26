@@ -2143,6 +2143,7 @@ static int remap_button(PSX_BUTTON button) {
 		while(SDL_PollEvent(&event)) {
 			switch (event.type) {
 			case SDL_JOYBUTTONDOWN: sdl_button = event.jbutton.button; break;
+			case SDL_KEYDOWN: if(event.key.keysym.sym == SDLK_LALT) return -1;
 			default: break;
 			}
 		}
@@ -2160,18 +2161,38 @@ static int remap_button(PSX_BUTTON button) {
 }
 
 static int remap_all_buttons() {
-	psx_but_map_triangle();
-	psx_but_map_circle();
-	psx_but_map_cross();
-	psx_but_map_square();
-	psx_but_map_L1();
-	psx_but_map_R1();
-	psx_but_map_L2();
-	psx_but_map_R2();
-	psx_but_map_select();
-	psx_but_map_start();
-	psx_but_map_L3();
-	psx_but_map_R3();
+	SDL_Event event;
+	uint16_t sdl_buttons[DKEY_TOTAL];
+	int i=0;
+
+	// get all buttons in the pressed order
+	// -4 because we don't remap d-pad
+	while(i < (DKEY_TOTAL-4)) {
+		while(SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_JOYBUTTONDOWN: sdl_buttons[i++] = event.jbutton.button; break;
+			case SDL_KEYDOWN: if(event.key.keysym.sym == SDLK_LALT) return -1;
+			default: break;
+			}
+		}
+	}
+
+	// remap all buttons now
+	i = 0;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_TRIANGLE;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_CIRCLE;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_CROSS;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_SQUARE;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_L1;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_R1;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_L2;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_R2;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_SELECT;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_START;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_L3;
+	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_R3;
+
+	controller_profile_save(profile_being_edited, profiles[profile_being_edited]);
 	return 0;
 }
 

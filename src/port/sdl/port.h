@@ -58,8 +58,8 @@ enum PSX_BUTTON {
 	DKEY_CROSS,
 	DKEY_SQUARE,
 
-	DKEY_NONE,
-	DKEY_TOTAL
+	DKEY_TOTAL,
+	DKEY_NONE
 };
 
 // enum {
