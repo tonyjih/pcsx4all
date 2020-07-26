@@ -1958,6 +1958,12 @@ static char *js0_profile_show() { return js_profile_show(0); }
 static char *js1_profile_show() { return js_profile_show(1); }
 static char *js2_profile_show() { return js_profile_show(2); }
 
+static void js_profile_hint() {
+	port_printf(6 * 8, 9 * 8,  "If you want to remap buttons,");
+	port_printf(6 * 8, 10 * 8, "go back and edit this profile");
+}
+
+
 static int js_deadzone_change(int js, u32 keys) {
 	if ((keys & KEY_RIGHT) && (controllers[js].analog_deadzone < 100)) {
 		controllers[js].analog_deadzone += 5;
@@ -1982,6 +1988,9 @@ static char *js0_deadzone_show() { return js_deadzone_show(0); }
 static char *js1_deadzone_show() { return js_deadzone_show(1); }
 static char *js2_deadzone_show() { return js_deadzone_show(2); }
 
+static void js_deadzone_hint() {
+	port_printf(6 * 8, 10 * 8, "Not implemented yet");
+}
 
 static int js_player_change(int js, u32 keys) {
 	controllers[js].player = (controllers[js].player) ? 0 : 1;
@@ -2018,9 +2027,9 @@ static void map_all_buttons_hint() {
 static MENUITEM gui_InputItems[] = {
   {(char *)"Native buttons", &gui_input_native, NULL, NULL, NULL},
   {(char *)"Hotkeys", &gui_input_hotkeys, NULL, NULL, NULL},
-  {(char *)"Joystick 1", &gui_input_js1, NULL, NULL, NULL},
-  {(char *)"Joystick 2", &gui_input_js2, NULL, NULL, NULL},
-  {(char *)"Button profiles", &gui_profiles, NULL, NULL, NULL},
+  {(char *)"Gamepad 1", &gui_input_js1, NULL, NULL, NULL},
+  {(char *)"Gamepad 2", &gui_input_js2, NULL, NULL, NULL},
+  {(char *)"Remap buttons", &gui_profiles, NULL, NULL, NULL},
 	{0}
 };
 #define SET_INPUT_SIZE ((sizeof(gui_InputItems) / sizeof(MENUITEM)) - 1)
@@ -2031,8 +2040,8 @@ static MENUITEM gui_input_NativeItems[] = {
 	{(char *)"Player               ", NULL, &js0_player_change, &js0_player_show, NULL},
 	{(char *)"Map L-stick to Dpad  ", NULL, &AnalogArrow_alter, &AnalogArrow_show, &AnalogArrow_hint},
 	{(char *)"Analog Mode          ", NULL, &Analog_Mode_alter, &Analog_Mode_show, &Analog_Mode_hint},
-	{(char *)"Analogs deadzone     ", NULL, &js0_deadzone_change, &js0_deadzone_show, NULL},
-	{(char *)"Buttons profile      ", NULL, &js0_profile_change, &js0_profile_show, NULL},
+	{(char *)"Analogs deadzone     ", NULL, &js0_deadzone_change, &js0_deadzone_show, &js_deadzone_hint},
+	{(char *)"Button profile       ", NULL, &js0_profile_change, &js0_profile_show, &js_profile_hint},
 	{0}
 };
 #define SET_INPUT_NATIVE_SIZE ((sizeof(gui_input_NativeItems) / sizeof(MENUITEM)) - 1)
@@ -2049,8 +2058,8 @@ static MENU gui_input_HotkeysMenu = { SET_INPUT_HOTKEYS_SIZE, 0, 56, 120, (MENUI
 // external joystick js1 menu
 static MENUITEM gui_input_JS1Items[] = {
 	{(char *)"Player            ", NULL, &js1_player_change, &js1_player_show, NULL},
-	{(char *)"Analogs deadzone  ", NULL, &js1_deadzone_change, &js1_deadzone_show, NULL},
-	{(char *)"Buttons profile   ", NULL, &js1_profile_change, &js1_profile_show, NULL},
+	{(char *)"Analogs deadzone  ", NULL, &js1_deadzone_change, &js1_deadzone_show, &js_deadzone_hint},
+	{(char *)"Button profile    ", NULL, &js1_profile_change, &js1_profile_show, &js_profile_hint},
 	{0}
 };
 #define SET_INPUT_JS1_SIZE ((sizeof(gui_input_JS1Items) / sizeof(MENUITEM)) - 1)
@@ -2059,8 +2068,8 @@ static MENU gui_input_JS1Menu = { SET_INPUT_JS1_SIZE, 0, 56, 120, (MENUITEM *)&g
 // external joystick js2 menu
 static MENUITEM gui_input_JS2Items[] = {
 	{(char *)"Player            ", NULL, &js2_player_change, &js2_player_show, NULL},
-	{(char *)"Analogs deadzone  ", NULL, &js2_deadzone_change, &js2_deadzone_show, NULL},
-	{(char *)"Buttons profile   ", NULL, &js2_profile_change, &js2_profile_show, NULL},
+	{(char *)"Analogs deadzone  ", NULL, &js2_deadzone_change, &js2_deadzone_show, &js_deadzone_hint},
+	{(char *)"Button profile    ", NULL, &js2_profile_change, &js2_profile_show, &js_profile_hint},
 	{0}
 };
 #define SET_INPUT_JS2_SIZE ((sizeof(gui_input_JS2Items) / sizeof(MENUITEM)) - 1)
