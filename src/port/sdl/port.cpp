@@ -814,10 +814,6 @@ void pad_update()
 			js = &controllers[event.jaxis.which];
 			axisval = event.jaxis.value;
 
-			// printf("AXIS event.jaxis.value %d\n", event.jaxis.value);
-			// printf("AXIS event.jaxis.which %d\n", event.jaxis.which);
-			// printf("AXIS js->player %d\n\n", js->player);
-
 			pad_buttons[js->player] |= (1 << DKEY_UP);
 			pad_buttons[js->player] |= (1 << DKEY_DOWN);
 			pad_buttons[js->player] |= (1 << DKEY_LEFT);
@@ -861,11 +857,6 @@ void pad_update()
 		case SDL_JOYBUTTONDOWN:
 			js = &controllers[event.jbutton.which];
 			button = profiles[js->profile_id][event.jbutton.button];
-			// printf("SDL_JOYBUTTONDOWN js->player %d\n", js->player);
-			// printf("SDL_JOYBUTTONDOWN controllers[1].profile_id %d\n", controllers[1].profile_id);
-			// printf("SDL_JOYBUTTONDOWN js->player %d\n", js->player);
-			// printf("SDL_JOYBUTTONDOWN event.jbutton.button %d\n", event.jbutton.button);
-			// printf("SDL_JOYBUTTONDOWN button %d\n", button);
 			pad_buttons[js->player] &= ~(1 << button);
 			break;
 		case SDL_JOYBUTTONUP:
@@ -909,6 +900,15 @@ void pad_update()
 		}
 	}
 
+	// if any player pressed start + select -> open menu
+	for(i=0; i<2; i++) {
+		if( !(pad_buttons[i] & ((1<<DKEY_SELECT) | (1<<DKEY_START)) )) {
+			printf("player %d opens menu\n", i);
+			popup_menu = true;
+			break;
+		}
+	}
+
 	// popup main menu
 	if (popup_menu) {
 		//Sync and close any memcard files opened for writing
@@ -922,6 +922,7 @@ void pad_update()
 		GameMenu();
 		emu_running = true;
 		pad_buttons[0] |= (1 << DKEY_SELECT) | (1 << DKEY_START) | (1 << DKEY_CROSS);
+		pad_buttons[1] |= (1 << DKEY_SELECT) | (1 << DKEY_START) | (1 << DKEY_CROSS);
 		update_window_size(gpu.screen.hres, gpu.screen.vres, Config.PsxType == PSX_TYPE_NTSC);
 		if (Config.VideoScaling == 1) {
 			video_clear_cache();
