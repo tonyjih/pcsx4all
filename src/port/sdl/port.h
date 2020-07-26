@@ -40,7 +40,7 @@ extern struct ps1_controller controllers[MAX_CONTROLLERS];
 // mapping of SDL buttons, line = profile, column = mapping SDL -> PSX
 extern uint8_t profiles[MAX_JS_PROFILES][MAX_JS_BUTTONS];
 
-enum PSX_BUTTONS {
+enum PSX_BUTTON {
 	DKEY_SELECT = 0,
 	DKEY_L3,
 	DKEY_R3,
@@ -58,6 +58,7 @@ enum PSX_BUTTONS {
 	DKEY_CROSS,
 	DKEY_SQUARE,
 
+	DKEY_NONE,
 	DKEY_TOTAL
 };
 

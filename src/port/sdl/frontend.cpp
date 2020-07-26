@@ -61,7 +61,7 @@ static unsigned int key_read(void)
 {
 	SDL_Event event;
 
-	while (SDL_PollEvent(&event))  {
+	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_KEYDOWN:
 			switch (event.key.keysym.sym) {
@@ -109,14 +109,9 @@ static unsigned int key_read(void)
 			}
 			break;
 
-		case SDL_JOYBUTTONDOWN:
-			// external joysticks
-			ret |= KEY_B; break;
-
 		default: break;
 		}
 	}
-
 
 	return ret;
 }
@@ -437,7 +432,8 @@ static int gui_profile_edit6() { return gui_profile_edit(6); }
 static int gui_profile_edit7() { return gui_profile_edit(7); }
 static int gui_profile_edit8() { return gui_profile_edit(8); }
 static int gui_profile_edit9() { return gui_profile_edit(9); }
-
+static int remap_button(PSX_BUTTON button);
+static int remap_all_buttons();
 
 static int gui_Credits()
 {
@@ -1969,9 +1965,14 @@ static char *js2_player_show() { return js_player_show(2); }
 
 
 static void map_button_hint() {
-	port_printf(8 * 8, 10 * 8, "Map buttons to profile");
+	port_printf(2 * 8, 8 * 8, " Select a button to remap and then");
+	port_printf(2 * 8, 9 * 8, "press the new button on the gamepad");
 }
 
+static void map_all_buttons_hint() {
+	port_printf(3 * 8, 8 * 8,  "   Or remap all buttons at once");
+	port_printf(3 * 8, 9 * 8,  "(no visual feedback until the end)");
+}
 
 // input menu
 static MENUITEM gui_InputItems[] = {
@@ -2026,7 +2027,7 @@ static MENUITEM gui_input_JS2Items[] = {
 static MENU gui_input_JS2Menu = { SET_INPUT_JS2_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_JS2Items };
 
 
-static char *psx_but_show(PSX_BUTTONS button) {
+static char *psx_but_show(PSX_BUTTON button) {
 	static char buf[4] = "\0";
 	for(int i=0; i<MAX_JS_BUTTONS; i++) {
 		if(profiles[profile_being_edited][i] == button) {
@@ -2034,7 +2035,7 @@ static char *psx_but_show(PSX_BUTTONS button) {
 			return buf;
 		}
 	}
-	strcat(buf, "-");
+	strcpy(buf, "-");
 	return buf;
 }
 static char *psx_but_show_triangle() { return psx_but_show(DKEY_TRIANGLE); }
@@ -2050,6 +2051,18 @@ static char *psx_but_show_start()    { return psx_but_show(DKEY_START); }
 static char *psx_but_show_L3()       { return psx_but_show(DKEY_L3); }
 static char *psx_but_show_R3()       { return psx_but_show(DKEY_R3); }
 
+static int psx_but_map_triangle() { return remap_button(DKEY_TRIANGLE); }
+static int psx_but_map_circle()   { return remap_button(DKEY_CIRCLE); }
+static int psx_but_map_cross()    { return remap_button(DKEY_CROSS); }
+static int psx_but_map_square()   { return remap_button(DKEY_SQUARE); }
+static int psx_but_map_L1()       { return remap_button(DKEY_L1); }
+static int psx_but_map_R1()       { return remap_button(DKEY_R1); }
+static int psx_but_map_L2()       { return remap_button(DKEY_L2); }
+static int psx_but_map_R2()       { return remap_button(DKEY_R2); }
+static int psx_but_map_select()   { return remap_button(DKEY_SELECT); }
+static int psx_but_map_start()    { return remap_button(DKEY_START); }
+static int psx_but_map_L3()       { return remap_button(DKEY_L3); }
+static int psx_but_map_R3()       { return remap_button(DKEY_R3); }
 
 // button profiles menu
 static MENUITEM gui_profilesItems[] = {
@@ -2070,22 +2083,24 @@ static MENU gui_profilesMenu = { SET_PROFILES_SIZE, 0, 102, 100, (MENUITEM *)&gu
 
 // button profile edit menu
 static MENUITEM gui_profile_editItems[] = {
-	{(char *)"PSX Triangle ", NULL, NULL, &psx_but_show_triangle, &map_button_hint},
-	{(char *)"PSX Circle   ", NULL, NULL, &psx_but_show_circle, &map_button_hint},
-	{(char *)"PSX X        ", NULL, NULL, &psx_but_show_cross, &map_button_hint},
-	{(char *)"PSX Square   ", NULL, NULL, &psx_but_show_square, &map_button_hint},
-	{(char *)"PSX L1       ", NULL, NULL, &psx_but_show_L1, &map_button_hint},
-	{(char *)"PSX R1       ", NULL, NULL, &psx_but_show_R1, &map_button_hint},
-	{(char *)"PSX L2       ", NULL, NULL, &psx_but_show_L2, &map_button_hint},
-	{(char *)"PSX R2       ", NULL, NULL, &psx_but_show_R2, &map_button_hint},
-	{(char *)"PSX Select   ", NULL, NULL, &psx_but_show_select, &map_button_hint},
-	{(char *)"PSX Start    ", NULL, NULL, &psx_but_show_start, &map_button_hint},
-	{(char *)"PSX L3       ", NULL, NULL, &psx_but_show_L3, &map_button_hint},
-	{(char *)"PSX R3       ", NULL, NULL, &psx_but_show_R3, &map_button_hint},
+	{(char *)"PSX Triangle  ", &psx_but_map_triangle, NULL, &psx_but_show_triangle, &map_button_hint},
+	{(char *)"PSX Circle    ", &psx_but_map_circle, NULL, &psx_but_show_circle, &map_button_hint},
+	{(char *)"PSX X         ", &psx_but_map_cross, NULL, &psx_but_show_cross, &map_button_hint},
+	{(char *)"PSX Square    ", &psx_but_map_square, NULL, &psx_but_show_square, &map_button_hint},
+	{(char *)"PSX L1        ", &psx_but_map_L1, NULL, &psx_but_show_L1, &map_button_hint},
+	{(char *)"PSX R1        ", &psx_but_map_R1, NULL, &psx_but_show_R1, &map_button_hint},
+	{(char *)"PSX L2        ", &psx_but_map_L2, NULL, &psx_but_show_L2, &map_button_hint},
+	{(char *)"PSX R2        ", &psx_but_map_R2, NULL, &psx_but_show_R2, &map_button_hint},
+	{(char *)"PSX Select    ", &psx_but_map_select, NULL, &psx_but_show_select, &map_button_hint},
+	{(char *)"PSX Start     ", &psx_but_map_start, NULL, &psx_but_show_start, &map_button_hint},
+	{(char *)"PSX L3        ", &psx_but_map_L3, NULL, &psx_but_show_L3, &map_button_hint},
+	{(char *)"PSX R3        ", &psx_but_map_R3, NULL, &psx_but_show_R3, &map_button_hint},
+	{(char *)"Remap all buttons", &remap_all_buttons, NULL, NULL, &map_all_buttons_hint},
 	{0}
 };
 #define SET_PROFILE_EDIT_SIZE ((sizeof(gui_profile_editItems) / sizeof(MENUITEM)) - 1)
-static MENU gui_profile_editMenu = { SET_PROFILE_EDIT_SIZE, 0, 102, 100, (MENUITEM *)&gui_profile_editItems };
+static MENU gui_profile_editMenu = { SET_PROFILE_EDIT_SIZE, 0, 102, 92, (MENUITEM *)&gui_profile_editItems };
+
 
 
 static int gui_input_native() {
@@ -2119,6 +2134,47 @@ static int gui_profile_edit(uint8_t profile_id) {
 	return 0;
 }
 
+static int remap_button(PSX_BUTTON button) {
+	SDL_Event event;
+	uint16_t sdl_button = -1;
+
+	// get the new button that will be mapped to this PSX action
+	while(sdl_button == (uint16_t)-1) {
+		while(SDL_PollEvent(&event)) {
+			switch (event.type) {
+			case SDL_JOYBUTTONDOWN: sdl_button = event.jbutton.button; break;
+			default: break;
+			}
+		}
+	}
+
+	// remove all mappings to this button
+	for(int i=0; i<MAX_JS_BUTTONS; i++)
+		if(profiles[profile_being_edited][i] == button)
+			profiles[profile_being_edited][i] = DKEY_NONE;
+
+	// remap and save to profile file
+	profiles[profile_being_edited][sdl_button] = button;
+	controller_profile_save(profile_being_edited, profiles[profile_being_edited]);
+	return 0;
+}
+
+static int remap_all_buttons() {
+	psx_but_map_triangle();
+	psx_but_map_circle();
+	psx_but_map_cross();
+	psx_but_map_square();
+	psx_but_map_L1();
+	psx_but_map_R1();
+	psx_but_map_L2();
+	psx_but_map_R2();
+	psx_but_map_select();
+	psx_but_map_start();
+	psx_but_map_L3();
+	psx_but_map_R3();
+	return 0;
+}
+
 
 /***** Main Menu settings *****/
 
@@ -2149,21 +2205,18 @@ static int gui_InputSettings()
 static int gui_Settings()
 {
 	gui_RunMenu(&gui_SettingsMenu);
-
 	return 0;
 }
 
 static int gui_GPUSettings()
 {
 	gui_RunMenu(&gui_GPUSettingsMenu);
-
 	return 0;
 }
 
 static int gui_SPUSettings()
 {
 	gui_RunMenu(&gui_SPUSettingsMenu);
-
 	return 0;
 }
 
