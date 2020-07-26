@@ -28,15 +28,59 @@ typedef struct ps1_controller {
 	uint8_t pad_mode;
 	uint8_t pad_controllertype;
 	uint8_t configmode;
-	uint8_t player;                        // player_1: 0, player_2: 1
-	uint8_t analog_deadzone;               // int between 0 and 100
-	uint8_t but_profile_id;                // 0 to MAX_JS_PROFILES
-	uint_least8_t but_map[MAX_JS_BUTTONS]; // mapping of SDL buttons, the index is the SDL id of the button
-	SDL_Joystick* sdl_joy;                 // used for native analog sticks and USB joysticks
+	uint8_t player;              // player_1: 0, player_2: 1
+	uint8_t analog_deadzone;     // int between 0 and 100
+	uint8_t profile_id;          // 0 to MAX_JS_PROFILES
+	SDL_Joystick* sdl_joy;       // used for native analog sticks and USB joysticks
 } Ps1Controller;
 
 // 0 for native sticks, 1 for external js1, 2 for external js2
 extern struct ps1_controller controllers[MAX_CONTROLLERS];
+
+// mapping of SDL buttons, line = profile, column = mapping SDL -> PSX
+extern uint8_t profiles[MAX_JS_PROFILES][MAX_JS_BUTTONS];
+
+enum PSX_BUTTONS {
+	DKEY_SELECT = 0,
+	DKEY_L3,
+	DKEY_R3,
+	DKEY_START,
+	DKEY_UP,
+	DKEY_RIGHT,
+	DKEY_DOWN,
+	DKEY_LEFT,
+	DKEY_L2,
+	DKEY_R2,
+	DKEY_L1,
+	DKEY_R1,
+	DKEY_TRIANGLE,
+	DKEY_CIRCLE,
+	DKEY_CROSS,
+	DKEY_SQUARE,
+
+	DKEY_TOTAL
+};
+
+// enum {
+// 	DKEY_TRIANGLE = 0,
+// 	DKEY_CIRCLE,
+// 	DKEY_CROSS,
+// 	DKEY_SQUARE,
+// 	DKEY_L1,
+// 	DKEY_R1,
+// 	DKEY_L2,
+// 	DKEY_R2,
+// 	DKEY_SELECT,
+// 	DKEY_START,
+// 	DKEY_L3,
+// 	DKEY_R3,
+// 	DKEY_UP,
+// 	DKEY_RIGHT,
+// 	DKEY_DOWN,
+// 	DKEY_LEFT,
+
+// 	DKEY_TOTAL
+// };
 
 ///////////////////////////
 // Windows compatibility //
@@ -68,6 +112,11 @@ extern int SCREEN_WIDTH, SCREEN_HEIGHT;
 
 int state_load(int slot);
 int state_save(int slot);
+
+void controller_config_load(int js_id);
+void controller_config_save(int js_id);
+void controller_profile_load(int js_id);
+void controller_profile_save(int profile_id, uint8_t *but_map);
 
 void update_memcards(int load_mcd);
 const char *bios_file_get();

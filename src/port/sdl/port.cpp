@@ -36,26 +36,6 @@ Shake_Device *device;
 int id_shake_level[16];
 #endif
 
-enum {
-	DKEY_SELECT = 0,
-	DKEY_L3,
-	DKEY_R3,
-	DKEY_START,
-	DKEY_UP,
-	DKEY_RIGHT,
-	DKEY_DOWN,
-	DKEY_LEFT,
-	DKEY_L2,
-	DKEY_R2,
-	DKEY_L1,
-	DKEY_R1,
-	DKEY_TRIANGLE,
-	DKEY_CIRCLE,
-	DKEY_CROSS,
-	DKEY_SQUARE,
-
-	DKEY_TOTAL
-};
 
 static SDL_Surface *screen;
 unsigned short *SCREEN;
@@ -71,10 +51,6 @@ static bool last_keep_aspect = false;
 void config_load();
 void config_save();
 void update_window_size(int w, int h, bool ntsc_fix);
-void controller_config_load(int js_id);
-void controller_config_save(int js_id);
-void controller_profile_load(int js_id, int profile_id);
-void controller_profile_save(int profile_id, uint8_t *but_map);
 void print_controllers_info();
 
 static const char *KEEP_ASPECT_FILENAME = "/sys/devices/platform/jz-lcd.0/keep_aspect_ratio";
@@ -190,7 +166,7 @@ static void setup_paths()
 			// player 1, deadzone of 30% and button profile 0 (default)
 			controllers[i].player = 0;
 			controllers[i].analog_deadzone = 30;
-			controllers[i].but_profile_id = 0;
+			controllers[i].profile_id = i;
 			controller_config_save(i);
 		}
 	}
@@ -200,7 +176,7 @@ static void setup_paths()
 		sprintf(fname, "%s/profile%d.cfg", profilesdir, i);
 		if(access(fname, F_OK) == -1) {
 			// default configuration: button 0 = triangle, button 1 = circle ...
-			uint_least8_t but_map[] = {
+			uint_least8_t profile[] = {
 				DKEY_TRIANGLE,
 				DKEY_CIRCLE,
 				DKEY_CROSS,
@@ -218,7 +194,7 @@ static void setup_paths()
 				DKEY_DOWN,
 				DKEY_LEFT
 			};
-			controller_profile_save(i, but_map);
+			controller_profile_save(i, profile);
 		}
 	}
 }
@@ -246,15 +222,15 @@ extern u32 cycle_multiplier; // in mips/recompiler.cpp
 
 void print_controllers_info() {
 	for(int i = 0; i<MAX_CONTROLLERS; i++) {
-		printf("----i=%d----\n", i);
+		printf("----js%d----\n", i);
 		printf("player: %d\n", controllers[i].player);
-		printf("but_profile_id: %d\n", controllers[i].but_profile_id);
+		printf("profile_id: %d\n", controllers[i].profile_id);
 		printf("analog_deadzone: %d\n", controllers[i].analog_deadzone);
 	}
 	printf("\n\n");
 }
 
-void controller_profile_load(int js_id, int profile_id) {
+void controller_profile_load(int profile_id) {
 	char config[MAXPATHLEN];
     FILE *f = NULL;
 	int button, value;
@@ -267,15 +243,14 @@ void controller_profile_load(int js_id, int profile_id) {
 
 	if((fscanf(f, "JS_PROFILE_VERSION %d\n", &value) == 1) && (value == JS_PROFILE_VERSION)) {
 		while(fscanf(f, "SDL %d == PSX %d\n", &button, &value) == 2) {
-			// printf("SDL %d == PSX %d\n", button, value);
-			controllers[js_id].but_map[button] = (uint8_t) value;
+			profiles[profile_id][button] = (uint8_t) value;
 		}
 	}
 
     fclose(f);
 }
 
-void controller_profile_save(int profile_id, uint8_t *but_map) {
+void controller_profile_save(int profile_id, uint8_t *profile) {
 	char config[MAXPATHLEN];
     FILE *f = NULL;
 
@@ -287,7 +262,7 @@ void controller_profile_save(int profile_id, uint8_t *but_map) {
 
 	fprintf(f, "JS_PROFILE_VERSION %d\n", JS_PROFILE_VERSION);
 	for(int i=0; i<MAX_JS_BUTTONS; i++) {
-		fprintf(f, "SDL %d == PSX %d\n", i, but_map[i]);
+		fprintf(f, "SDL %d == PSX %d\n", i, profile[i]);
 	}
 
     fclose(f);
@@ -309,8 +284,8 @@ void controller_config_load(int js_id) {
 			controllers[js_id].player = value;
 		if (fscanf(f, "analog_deadzone %d\n", &value) == 1)
 			controllers[js_id].analog_deadzone = value;
-		if (fscanf(f, "but_profile_id %d\n", &value) == 1)
-			controllers[js_id].but_profile_id = value;
+		if (fscanf(f, "profile_id %d\n", &value) == 1)
+			controllers[js_id].profile_id = value;
 	}
 
     fclose(f);
@@ -329,7 +304,7 @@ void controller_config_save(int js_id) {
 	fprintf(f, "JS_CONFIG_VERSION %d\n", JS_CONFIG_VERSION);
 	fprintf(f, "player %d\n", controllers[js_id].player);
     fprintf(f, "analog_deadzone %d\n", controllers[js_id].analog_deadzone);
-    fprintf(f, "but_profile_id %d\n", controllers[js_id].but_profile_id);
+    fprintf(f, "profile_id %d\n", controllers[js_id].profile_id);
 
     fclose(f);
 }
@@ -718,6 +693,9 @@ enum {
 // 0 for native buttons/sticks, 1 for external js1, 2 for external js2
 Ps1Controller controllers[MAX_CONTROLLERS];
 
+// mapping of SDL buttons, line = profile, column = mapping SDL -> PSX
+uint8_t profiles[MAX_JS_PROFILES][MAX_JS_BUTTONS];
+
 void Set_Controller_Mode(uint_fast8_t i)
 {
 	switch (Config.AnalogMode) {
@@ -745,8 +723,7 @@ void Set_Controller_Mode(uint_fast8_t i)
 	}
 }
 
-void joy_init()
-{
+void init_controllers() {
 	for(int i = 0; i<MAX_CONTROLLERS; i++) {
 		// init SDL joystick
 		controllers[i].sdl_joy = SDL_JoystickOpen(i);
@@ -770,12 +747,14 @@ void joy_init()
 
 		// load other configs from cfg file
 		controller_config_load(i);
-
-		// map buttons to profile
-		controller_profile_load(i, controllers[i].but_profile_id);
-
 	}
 	print_controllers_info();
+}
+
+void init_profiles(){
+	for(int i = 0; i<MAX_JS_PROFILES; i++) {
+		controller_profile_load(i);
+	}
 }
 
 void pad_update()
@@ -784,7 +763,8 @@ void pad_update()
 	SDL_Event event;
 	bool popup_menu = false;
 	uint_fast8_t i;
-	Ps1Controller *controller;
+	Ps1Controller *js;
+	uint8_t button;
 
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
@@ -831,79 +811,82 @@ void pad_update()
 
 		// analog sticks
 		case SDL_JOYAXISMOTION:
-			controller = &controllers[event.jaxis.which];
+			js = &controllers[event.jaxis.which];
 			axisval = event.jaxis.value;
 
 			// printf("AXIS event.jaxis.value %d\n", event.jaxis.value);
 			// printf("AXIS event.jaxis.which %d\n", event.jaxis.which);
-			// printf("AXIS controller->player %d\n\n", controller->player);
+			// printf("AXIS js->player %d\n\n", js->player);
 
-			pad_buttons[controller->player] |= (1 << DKEY_UP);
-			pad_buttons[controller->player] |= (1 << DKEY_DOWN);
-			pad_buttons[controller->player] |= (1 << DKEY_LEFT);
-			pad_buttons[controller->player] |= (1 << DKEY_RIGHT);
+			pad_buttons[js->player] |= (1 << DKEY_UP);
+			pad_buttons[js->player] |= (1 << DKEY_DOWN);
+			pad_buttons[js->player] |= (1 << DKEY_LEFT);
+			pad_buttons[js->player] |= (1 << DKEY_RIGHT);
 
 			switch (event.jaxis.axis) {
 			case 0: /* X axis */
 				if (Config.AnalogArrow == 1) {
-					analogs[controller->player] &= ~(ANALOG_LEFT | ANALOG_RIGHT);
+					analogs[js->player] &= ~(ANALOG_LEFT | ANALOG_RIGHT);
 					if (axisval > joy_commit_range) {
-						analogs[controller->player] |= ANALOG_RIGHT;
+						analogs[js->player] |= ANALOG_RIGHT;
 					} else if (axisval < -joy_commit_range) {
-						analogs[controller->player] |= ANALOG_LEFT;
+						analogs[js->player] |= ANALOG_LEFT;
 					}
 				} else {
-					controller->joy_left_ax0 = (axisval + 0x8000) >> 8;
+					js->joy_left_ax0 = (axisval + 0x8000) >> 8;
 				}
 				break;
 			case 1: /* Y axis */
 				if (Config.AnalogArrow == 1) {
-					analogs[controller->player] &= ~(ANALOG_UP | ANALOG_DOWN);
+					analogs[js->player] &= ~(ANALOG_UP | ANALOG_DOWN);
 					if (axisval > joy_commit_range) {
-						analogs[controller->player] |= ANALOG_DOWN;
+						analogs[js->player] |= ANALOG_DOWN;
 					} else if (axisval < -joy_commit_range) {
-						analogs[controller->player] |= ANALOG_UP;
+						analogs[js->player] |= ANALOG_UP;
 					}
 				} else {
-					controller->joy_left_ax1 = (axisval + 0x8000) >> 8;
+					js->joy_left_ax1 = (axisval + 0x8000) >> 8;
 				}
 				break;
 			case 2: /* X axis */
-				controller->joy_right_ax0 = (axisval + 0x8000) >> 8;
+				js->joy_right_ax0 = (axisval + 0x8000) >> 8;
 				break;
 			case 3: /* Y axis */
-				controller->joy_right_ax1 = (axisval + 0x8000) >> 8;
+				js->joy_right_ax1 = (axisval + 0x8000) >> 8;
 				break;
 			}
 			break;
 
 		// USB joystick buttons
 		case SDL_JOYBUTTONDOWN:
-			controller = &controllers[event.jbutton.which];
-			// printf("DOWN event.jbutton.which %d\n", event.jbutton.which);
-			// printf("DOWN controller->player %d\n", controller->player);
-			// printf("DOWN event.jbutton.button %d\n", event.jbutton.button);
-			// printf("DOWN controller->but_map[event.jbutton.button] %d\n", controller->but_map[event.jbutton.button]);
-			pad_buttons[controller->player] &= ~(1 << controller->but_map[event.jbutton.button]);
+			js = &controllers[event.jbutton.which];
+			button = profiles[js->profile_id][event.jbutton.button];
+			// printf("SDL_JOYBUTTONDOWN js->player %d\n", js->player);
+			// printf("SDL_JOYBUTTONDOWN controllers[1].profile_id %d\n", controllers[1].profile_id);
+			// printf("SDL_JOYBUTTONDOWN js->player %d\n", js->player);
+			// printf("SDL_JOYBUTTONDOWN event.jbutton.button %d\n", event.jbutton.button);
+			// printf("SDL_JOYBUTTONDOWN button %d\n", button);
+			pad_buttons[js->player] &= ~(1 << button);
 			break;
 		case SDL_JOYBUTTONUP:
-			controller = &controllers[event.jbutton.which];
-			pad_buttons[controller->player] |= (1 << controller->but_map[event.jbutton.button]);
+			js = &controllers[event.jbutton.which];
+			button = profiles[js->profile_id][event.jbutton.button];
+			pad_buttons[js->player] |= (1 << button);
 			break;
 
 		// USB joystick D-pad (HAT)
 		case SDL_JOYHATMOTION:
-			controller = &controllers[event.jbutton.which];
+			js = &controllers[event.jbutton.which];
 			// reset hat
-			pad_buttons[controller->player] |= (1 << DKEY_UP);
-			pad_buttons[controller->player] |= (1 << DKEY_DOWN);
-			pad_buttons[controller->player] |= (1 << DKEY_LEFT);
-			pad_buttons[controller->player] |= (1 << DKEY_RIGHT);
+			pad_buttons[js->player] |= (1 << DKEY_UP);
+			pad_buttons[js->player] |= (1 << DKEY_DOWN);
+			pad_buttons[js->player] |= (1 << DKEY_LEFT);
+			pad_buttons[js->player] |= (1 << DKEY_RIGHT);
 			// get pressed direction(s)
-			if (event.jhat.value & SDL_HAT_UP)    pad_buttons[controller->player] &= ~(1 << controller->but_map[12]);
-			if (event.jhat.value & SDL_HAT_RIGHT) pad_buttons[controller->player] &= ~(1 << controller->but_map[13]);
-			if (event.jhat.value & SDL_HAT_DOWN)  pad_buttons[controller->player] &= ~(1 << controller->but_map[14]);
-			if (event.jhat.value & SDL_HAT_LEFT)  pad_buttons[controller->player] &= ~(1 << controller->but_map[15]);
+			if (event.jhat.value & SDL_HAT_UP)    pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][12]);
+			if (event.jhat.value & SDL_HAT_RIGHT) pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][13]);
+			if (event.jhat.value & SDL_HAT_DOWN)  pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][14]);
+			if (event.jhat.value & SDL_HAT_LEFT)  pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][15]);
 			break;
 		default: break;
 		}
@@ -1691,7 +1674,8 @@ int main (int argc, char **argv)
 
 
 	Rumble_Init();
-	joy_init();
+	init_controllers();
+	init_profiles();
 
 
 	if (filename[0] != '\0') {
