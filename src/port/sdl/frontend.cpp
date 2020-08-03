@@ -475,6 +475,7 @@ static int gui_profile_edit6() { return gui_profile_edit(6); }
 static int gui_profile_edit7() { return gui_profile_edit(7); }
 static int gui_profile_edit8() { return gui_profile_edit(8); }
 static int gui_profile_edit9() { return gui_profile_edit(9); }
+static int gui_profile_edit_from_js();
 static int remap_button(PSX_BUTTON button);
 static int profile_remap_all_buttons();
 static int profile_reset_to_default();
@@ -1965,8 +1966,8 @@ static char *js_profile_show() {
 }
 
 static void js_profile_hint() {
-	port_printf(6 * 8, 9 * 8,  "If you want to remap buttons,");
-	port_printf(6 * 8, 10 * 8, "go back and edit this profile");
+	port_printf(5*8,  9*8,  " Press A to edit this profile ");
+	port_printf(5*8, 10*8+1, "LEFT / RIGHT to change profile");
 }
 
 
@@ -1985,10 +1986,6 @@ static char *js_deadzone_show() {
 	static char buf[5] = "\0";
 	sprintf(buf, "%d%%", controllers[js_being_edited].analog_deadzone);
 	return buf;
-}
-
-static void js_deadzone_hint() {
-	port_printf(6 * 8, 10 * 8, "Not implemented yet");
 }
 
 static int js_player_change(u32 keys) {
@@ -2038,10 +2035,10 @@ static MENU gui_InputMenu = { SET_INPUT_SIZE, 0, 102, 120, (MENUITEM *)&gui_Inpu
 // native buttons menu
 static MENUITEM gui_input_NativeItems[] = {
 	{(char *)"Player               ", NULL, &js_player_change, &js_player_show, NULL},
-	{(char *)"Button profile       ", NULL, &js_profile_change, &js_profile_show, &js_profile_hint},
+	{(char *)"Button profile       ", &gui_profile_edit_from_js, &js_profile_change, &js_profile_show, &js_profile_hint},
 	{(char *)"Map L-stick to D-pad ", NULL, &AnalogArrow_alter, &AnalogArrow_show, &AnalogArrow_hint},
 	{(char *)"Analog Mode          ", NULL, &Analog_Mode_alter, &Analog_Mode_show, &Analog_Mode_hint},
-	{(char *)"Analogs deadzone     ", NULL, &js_deadzone_change, &js_deadzone_show, &js_deadzone_hint},
+	{(char *)"Analogs deadzone     ", NULL, &js_deadzone_change, &js_deadzone_show, NULL},
 	{0}
 };
 #define SET_INPUT_NATIVE_SIZE ((sizeof(gui_input_NativeItems) / sizeof(MENUITEM)) - 1)
@@ -2058,8 +2055,8 @@ static MENU gui_input_HotkeysMenu = { SET_INPUT_HOTKEYS_SIZE, 0, 56, 120, (MENUI
 // USB gamepad 1 and 2 menus
 static MENUITEM gui_input_JSItems[] = {
 	{(char *)"Player            ", NULL, &js_player_change, &js_player_show, NULL},
-	{(char *)"Button profile    ", NULL, &js_profile_change, &js_profile_show, &js_profile_hint},
-	{(char *)"Analogs deadzone  ", NULL, &js_deadzone_change, &js_deadzone_show, &js_deadzone_hint},
+	{(char *)"Button profile    ", &gui_profile_edit_from_js, &js_profile_change, &js_profile_show, &js_profile_hint},
+	{(char *)"Analogs deadzone  ", NULL, &js_deadzone_change, &js_deadzone_show, NULL},
 	{0}
 };
 #define SET_INPUT_JS_SIZE ((sizeof(gui_input_JSItems) / sizeof(MENUITEM)) - 1)
@@ -2118,7 +2115,7 @@ static MENUITEM gui_profilesItems[] = {
 	{0}
 };
 #define SET_PROFILES_SIZE ((sizeof(gui_profilesItems) / sizeof(MENUITEM)) - 1)
-static MENU gui_profilesMenu = { SET_PROFILES_SIZE, 0, 102, 100, (MENUITEM *)&gui_profilesItems };
+static MENU gui_profilesMenu = { SET_PROFILES_SIZE, 0, 120, 100, (MENUITEM *)&gui_profilesItems };
 
 // button profile edit menu
 static MENUITEM gui_profile_editItems[] = {
@@ -2166,6 +2163,12 @@ static int gui_profiles() {
 
 static int gui_profile_edit(uint8_t profile_id) {
 	profile_being_edited = profile_id;
+	gui_RunMenu(&gui_profile_editMenu);
+	return 0;
+}
+
+static int gui_profile_edit_from_js() {
+	profile_being_edited = controllers[js_being_edited].profile_id;
 	gui_RunMenu(&gui_profile_editMenu);
 	return 0;
 }
