@@ -163,9 +163,9 @@ static void setup_paths()
 	for(int i = 0; i < MAX_CONTROLLERS; i++) {
 		sprintf(fname, "%s/js%d.cfg", jsdir, i);
 		if(access(fname, F_OK) == -1) {
-			// player 1, deadzone of 30% and button profile 0 (default)
+			// player 1, deadzone of 25% and a different button profile for each
 			controllers[i].player = 0;
-			controllers[i].analog_deadzone = 30;
+			controllers[i].analog_deadzone = 25;
 			controllers[i].profile_id = i;
 			controller_config_save(i);
 		}
@@ -250,7 +250,7 @@ void controller_profile_save(int profile_id, uint8_t *profile) {
 }
 
 void controller_profile_set_to_default(int profile_id){
-	// default configuration: button 0 = triangle, button 1 = circle ...
+	// default configuration: button 0 -> triangle, button 1 -> circle ...
 	uint_least8_t default_profile[] = {
 		DKEY_TRIANGLE,
 		DKEY_CIRCLE,
@@ -269,10 +269,18 @@ void controller_profile_set_to_default(int profile_id){
 		DKEY_DOWN,
 		DKEY_LEFT
 	};
+
 	for(int i=0; i<MAX_JS_BUTTONS; i++) {
-		profiles[profile_id][i] = default_profile[i];
+		if(profile_id == 0) {
+			// the controllers[0] (native buttons) has a different default config
+			// and the profile 0 is the default profile for the controller 0
+			// we auto-map it to the exact sequence of the enum PSX_BUTTON
+			profiles[profile_id][i] = i;
+		} else {
+			profiles[profile_id][i] = default_profile[i];
+		}
 	}
-	controller_profile_save(profile_id, default_profile);
+	controller_profile_save(profile_id, profiles[profile_id]);
 }
 
 void controller_config_load(int js_id) {
@@ -649,46 +657,13 @@ int state_save(int slot)
 	return SaveState(savename);
 }
 
-static struct {
-	int key;
-	int bit;
-} keymap[] = {
-	{ SDLK_UP,			DKEY_UP },
-	{ SDLK_DOWN,		DKEY_DOWN },
-	{ SDLK_LEFT,		DKEY_LEFT },
-	{ SDLK_RIGHT,		DKEY_RIGHT },
-#ifdef GCW_ZERO
-	{ SDLK_LSHIFT,		DKEY_SQUARE },
-	{ SDLK_LCTRL,		DKEY_CIRCLE },
-	{ SDLK_SPACE,		DKEY_TRIANGLE },
-	{ SDLK_LALT,		DKEY_CROSS },
-	{ SDLK_TAB,			DKEY_L1 },
-	{ SDLK_BACKSPACE,	DKEY_R1 },
-	{ SDLK_PAGEUP,		DKEY_L2 },
-	{ SDLK_PAGEDOWN,	DKEY_R2 },
-	{ SDLK_KP_DIVIDE,	DKEY_L3 },
-	{ SDLK_KP_PERIOD,	DKEY_R3 },
-	{ SDLK_ESCAPE,		DKEY_SELECT },
-#else
-	{ SDLK_a,		DKEY_SQUARE },
-	{ SDLK_x,		DKEY_CIRCLE },
-	{ SDLK_s,		DKEY_TRIANGLE },
-	{ SDLK_z,		DKEY_CROSS },
-	{ SDLK_q,		DKEY_L1 },
-	{ SDLK_w,		DKEY_R1 },
-	{ SDLK_e,		DKEY_L2 },
-	{ SDLK_r,		DKEY_R2 },
-	{ SDLK_BACKSPACE,	DKEY_SELECT },
-#endif
-	{ SDLK_RETURN,		DKEY_START },
-	{ 0, 0 }
-};
 
 // 0 for player 1, 1 for player 2
 static uint16_t pads[2] = {0xFFFF, 0xFFFF};
 static uint16_t pad_buttons[2] = {0xFFFF, 0xFFFF};
 static unsigned short analogs[2] = {0, 0};
 
+// analog range: -32768 to 32767
 #define joy_commit_range    8192
 enum {
 	ANALOG_UP = 1,
@@ -781,6 +756,7 @@ void pad_update()
 
 		// get native buttons press
 		case SDL_KEYDOWN:
+			js = &controllers[0];
 			switch (event.key.keysym.sym) {
 			case SDLK_HOME:
 			case SDLK_F10:
@@ -799,7 +775,8 @@ void pad_update()
 				for (i = 0; i < DKEY_TOTAL; i++)
 					if (event.key.keysym.sym == keymap[i].key)
 					{
-						pad_buttons[0] &= ~(1 << keymap[i].bit);
+						button = profiles[js->profile_id][keymap[i].bit];
+						pad_buttons[js->player] &= ~(1 << button);
 						break;
 					}
 				break;
@@ -808,10 +785,12 @@ void pad_update()
 
 		// native buttons release
 		case SDL_KEYUP:
+			js = &controllers[0];
 			for (i = 0; i < DKEY_TOTAL; i++)
 				if (event.key.keysym.sym == keymap[i].key)
 				{
-					pad_buttons[0] |= (1 << keymap[i].bit);
+					button = profiles[js->profile_id][keymap[i].bit];
+					pad_buttons[js->player] |= (1 << button);
 					break;
 				}
 			break;

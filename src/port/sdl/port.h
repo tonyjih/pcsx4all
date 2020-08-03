@@ -63,27 +63,40 @@ enum PSX_BUTTON {
 };
 
 
-
-// enum {
-// 	DKEY_TRIANGLE = 0,
-// 	DKEY_CIRCLE,
-// 	DKEY_CROSS,
-// 	DKEY_SQUARE,
-// 	DKEY_L1,
-// 	DKEY_R1,
-// 	DKEY_L2,
-// 	DKEY_R2,
-// 	DKEY_SELECT,
-// 	DKEY_START,
-// 	DKEY_L3,
-// 	DKEY_R3,
-// 	DKEY_UP,
-// 	DKEY_RIGHT,
-// 	DKEY_DOWN,
-// 	DKEY_LEFT,
-
-// 	DKEY_TOTAL
-// };
+static struct {
+	int key;
+	int bit;
+} keymap[] = {
+	{ SDLK_UP,        DKEY_UP },
+	{ SDLK_DOWN,      DKEY_DOWN },
+	{ SDLK_LEFT,      DKEY_LEFT },
+	{ SDLK_RIGHT,     DKEY_RIGHT },
+#ifdef GCW_ZERO
+	{ SDLK_LSHIFT,    DKEY_SQUARE },
+	{ SDLK_LCTRL,     DKEY_CIRCLE },
+	{ SDLK_SPACE,     DKEY_TRIANGLE },
+	{ SDLK_LALT,      DKEY_CROSS },
+	{ SDLK_TAB,       DKEY_L1 },
+	{ SDLK_BACKSPACE, DKEY_R1 },
+	{ SDLK_PAGEUP,    DKEY_L2 },
+	{ SDLK_PAGEDOWN,  DKEY_R2 },
+	{ SDLK_KP_DIVIDE, DKEY_L3 },
+	{ SDLK_KP_PERIOD, DKEY_R3 },
+	{ SDLK_ESCAPE,    DKEY_SELECT },
+#else
+	{ SDLK_a,         DKEY_SQUARE },
+	{ SDLK_x,         DKEY_CIRCLE },
+	{ SDLK_s,         DKEY_TRIANGLE },
+	{ SDLK_z,         DKEY_CROSS },
+	{ SDLK_q,         DKEY_L1 },
+	{ SDLK_w,         DKEY_R1 },
+	{ SDLK_e,         DKEY_L2 },
+	{ SDLK_r,         DKEY_R2 },
+	{ SDLK_BACKSPACE, DKEY_SELECT },
+#endif
+	{ SDLK_RETURN,    DKEY_START },
+	{ 0, 0 }
+};
 
 
 ///////////////////////////

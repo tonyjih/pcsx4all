@@ -1998,8 +1998,9 @@ static char *js_player_show() {
 
 
 static void map_button_hint() {
-	port_printf(2 * 8, 8 * 8, " Select a button to remap and then");
-	port_printf(2 * 8, 9 * 8, "press the new button on the gamepad");
+	port_printf(2*8, 7*8  , "Select a button to remap and press A");
+	port_printf(2*8, 8*8+1, "     Then, press the new button     ");
+	port_printf(2*8, 9*8+2, " You can press UP or DOWN to cancel ");
 }
 
 static void map_all_buttons_hint() {
@@ -2022,7 +2023,7 @@ static MENU gui_InputMenu = { SET_INPUT_SIZE, 0, 102, 120, (MENUITEM *)&gui_Inpu
 static MENUITEM gui_input_NativeItems[] = {
 	{(char *)"Player               ", NULL, &js_player_change, &js_player_show, NULL},
 	{(char *)"Button profile       ", NULL, &js_profile_change, &js_profile_show, &js_profile_hint},
-	{(char *)"Map L-stick to Dpad  ", NULL, &AnalogArrow_alter, &AnalogArrow_show, &AnalogArrow_hint},
+	{(char *)"Map L-stick to D-pad ", NULL, &AnalogArrow_alter, &AnalogArrow_show, &AnalogArrow_hint},
 	{(char *)"Analog Mode          ", NULL, &Analog_Mode_alter, &Analog_Mode_show, &Analog_Mode_hint},
 	{(char *)"Analogs deadzone     ", NULL, &js_deadzone_change, &js_deadzone_show, &js_deadzone_hint},
 	{0}
@@ -2154,20 +2155,37 @@ static int gui_profile_edit(uint8_t profile_id) {
 	return 0;
 }
 
-static int remap_button(PSX_BUTTON button) {
-	SDL_Event event;
-	uint16_t sdl_button = -1;
+static uint16_t read_button_to_remap() {
+	SDL_Event e;
+	SDLKey k;
 
-	// get the new button that will be mapped to this PSX action
-	while(sdl_button == (uint16_t)-1) {
-		while(SDL_PollEvent(&event)) {
-			switch (event.type) {
-			case SDL_JOYBUTTONDOWN: sdl_button = event.jbutton.button; break;
-			case SDL_KEYDOWN: if(event.key.keysym.sym == SDLK_LALT) return -1;
+	while(1) {
+		while(SDL_PollEvent(&e)) {
+			switch (e.type) {
+			case SDL_JOYBUTTONDOWN: return e.jbutton.button;
+			case SDL_JOYHATMOTION: return -1;
+			case SDL_KEYDOWN:
+				k = e.key.keysym.sym;
+				if(k==SDLK_UP || k==SDLK_DOWN || k==SDLK_LEFT || k==SDLK_RIGHT) {
+					return -1;
+				}
+				for(int i = 0; i < DKEY_TOTAL; i++)
+					if(k == keymap[i].key)
+						return keymap[i].bit;
+				break;
 			default: break;
 			}
 		}
 	}
+}
+
+static int remap_button(PSX_BUTTON button) {
+	uint16_t sdl_button;
+
+	// get the new button that will be mapped to this PSX action
+	sdl_button = read_button_to_remap();
+	if(sdl_button == (uint16_t)-1)
+		return 0;
 
 	// remove all mappings to this button
 	for(int i=0; i<MAX_JS_BUTTONS; i++)
@@ -2181,20 +2199,17 @@ static int remap_button(PSX_BUTTON button) {
 }
 
 static int profile_remap_all_buttons() {
-	SDL_Event event;
 	uint16_t sdl_buttons[DKEY_TOTAL];
+	uint16_t sdl_button;
 	int i=0;
 
 	// get all buttons in the pressed order
 	// -4 because we don't remap d-pad
 	while(i < (DKEY_TOTAL-4)) {
-		while(SDL_PollEvent(&event)) {
-			switch (event.type) {
-			case SDL_JOYBUTTONDOWN: sdl_buttons[i++] = event.jbutton.button; break;
-			case SDL_KEYDOWN: if(event.key.keysym.sym == SDLK_LALT) return -1;
-			default: break;
-			}
-		}
+		sdl_button = read_button_to_remap();
+		if(sdl_button == (uint16_t)-1)
+			return 0;
+		sdl_buttons[i++] = sdl_button;
 	}
 
 	// remap all buttons now
