@@ -55,6 +55,7 @@ static u32 ret = 0;
 
 static uint8_t profile_being_edited;
 static uint8_t js_being_edited;
+static bool is_remapping_button = false;
 
 static inline void key_reset() { ret = 0; }
 
@@ -1940,6 +1941,12 @@ static MENU gui_SPUSettingsMenu = { SET_SPUSIZE, 0, 56, 102, (MENUITEM *)&gui_SP
 
 /***** input settings *****/
 
+void menu_refresh(MENU *menu) {
+	video_clear();
+	ShowMenu(menu);
+	video_flip();
+}
+
 static int js_profile_change(u32 keys) {
 	uint8_t js = js_being_edited;
 	if ((keys & KEY_RIGHT) && (controllers[js].profile_id < MAX_JS_PROFILES-1)) {
@@ -1999,14 +2006,21 @@ static char *js_player_show() {
 
 
 static void map_button_hint() {
-	port_printf(2*8, 7*8  , "Select a button to remap and press A");
-	port_printf(2*8, 8*8+1, "     Then, press the new button     ");
-	port_printf(2*8, 9*8+2, " You can press UP or DOWN to cancel ");
+	if(is_remapping_button) {
+		port_printf(8*8, 8*8  , "Now press the new button,");
+		port_printf(8*8, 9*8+1, " or UP / DOWN to cancel ");
+	} else {
+		port_printf(6*8, 8*8  , "Press A to remap this button");
+	}
 }
 
 static void map_all_buttons_hint() {
-	port_printf(8 * 8, 8 * 8  , "Remap all buttons at once");
-	port_printf(8 * 8, 9 * 8+1, "    UP / DOWN to stop    ");
+	if(is_remapping_button) {
+		port_printf(4*8, 8*8  , "Press the next button to remap,");
+		port_printf(4*8, 9*8+1, "     or UP / DOWN to stop     ");
+	} else {
+		port_printf(2*8, 8*8  , "Press A to remap all buttons at once");
+	}
 }
 
 // input menu
@@ -2181,26 +2195,27 @@ static uint16_t read_button_to_remap() {
 }
 
 static int remap_button(PSX_BUTTON button) {
+	uint16_t sdl_button;
+
+	is_remapping_button = true;
+	menu_refresh(&gui_profile_editMenu);
+
 	// get the new button that will be mapped to this PSX action
-	uint16_t sdl_button = read_button_to_remap();
-	if(sdl_button == (uint16_t)-1)
-		return 0;
+	sdl_button = read_button_to_remap();
+	if(sdl_button != (uint16_t)-1) {
+		// remove all mappings to this button
+		for(int i=0; i<PROFILE_LENGTH; i++)
+			if(profiles[profile_being_edited][i] == button)
+				profiles[profile_being_edited][i] = DKEY_NONE;
 
-	// remove all mappings to this button
-	for(int i=0; i<PROFILE_LENGTH; i++)
-		if(profiles[profile_being_edited][i] == button)
-			profiles[profile_being_edited][i] = DKEY_NONE;
+		// remap and save to profile file
+		profiles[profile_being_edited][sdl_button] = button;
+		controller_profile_save(profile_being_edited, profiles[profile_being_edited]);
+	}
 
-	// remap and save to profile file
-	profiles[profile_being_edited][sdl_button] = button;
-	controller_profile_save(profile_being_edited, profiles[profile_being_edited]);
-	return 0;
-}
-
-void menu_refresh(MENU *menu) {
+	is_remapping_button = false;
 	video_clear();
-	ShowMenu(menu);
-	video_flip();
+	return 0;
 }
 
 static int profile_remap_all_buttons() {
@@ -2222,6 +2237,8 @@ static int profile_remap_all_buttons() {
 		DKEY_R3
 	};
 
+	is_remapping_button = true;
+
 	// unmap all buttons
 	for(i=0; i < PROFILE_LENGTH; i++) {
 		profiles[profile_being_edited][i] = DKEY_NONE;
@@ -2242,6 +2259,7 @@ static int profile_remap_all_buttons() {
 	// persist config and clear screen to return to normal menu
 	controller_profile_save(profile_being_edited, profiles[profile_being_edited]);
 	video_clear();
+	is_remapping_button = false;
 	return 0;
 }
 
