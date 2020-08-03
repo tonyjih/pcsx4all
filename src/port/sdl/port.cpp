@@ -242,7 +242,7 @@ void controller_profile_save(int profile_id, uint8_t *profile) {
 	}
 
 	fprintf(f, "JS_PROFILE_VERSION %d\n", JS_PROFILE_VERSION);
-	for(int i=0; i<MAX_JS_BUTTONS; i++) {
+	for(int i=0; i<PROFILE_LENGTH; i++) {
 		fprintf(f, "SDL %d == PSX %d\n", i, profile[i]);
 	}
 
@@ -270,7 +270,7 @@ void controller_profile_set_to_default(int profile_id){
 		DKEY_NONE
 	};
 
-	for(int i=0; i<MAX_JS_BUTTONS; i++) {
+	for(int i=0; i<PROFILE_LENGTH; i++) {
 		if(profile_id == 0) {
 			// the controllers[0] (native buttons) has a different default config
 			// and the profile 0 is the default profile for the controller 0
@@ -676,7 +676,7 @@ enum {
 Ps1Controller controllers[MAX_CONTROLLERS];
 
 // mapping of SDL buttons, line = profile, column = mapping SDL -> PSX
-uint8_t profiles[MAX_JS_PROFILES][MAX_JS_BUTTONS];
+uint8_t profiles[MAX_JS_PROFILES][PROFILE_LENGTH];
 
 void Set_Controller_Mode(uint_fast8_t i)
 {

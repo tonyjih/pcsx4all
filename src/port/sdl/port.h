@@ -13,8 +13,8 @@
 #include <assert.h>
 #include <SDL.h>
 
-#define MAX_JS_BUTTONS 16
 #define MAX_JS_PROFILES 10
+#define PROFILE_LENGTH 16  // some gamepads skip some SDL values
 #define MAX_CONTROLLERS 3
 
 typedef struct ps1_controller {
@@ -38,7 +38,7 @@ typedef struct ps1_controller {
 extern struct ps1_controller controllers[MAX_CONTROLLERS];
 
 // mapping of SDL buttons, line = profile, column = mapping SDL -> PSX
-extern uint8_t profiles[MAX_JS_PROFILES][MAX_JS_BUTTONS];
+extern uint8_t profiles[MAX_JS_PROFILES][PROFILE_LENGTH];
 
 enum PSX_BUTTON {
 	DKEY_SELECT = 0,

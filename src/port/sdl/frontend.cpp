@@ -477,6 +477,7 @@ static int gui_profile_edit9() { return gui_profile_edit(9); }
 static int remap_button(PSX_BUTTON button);
 static int profile_remap_all_buttons();
 static int profile_reset_to_default();
+static void ShowMenu(MENU *menu);
 
 static int gui_Credits()
 {
@@ -2004,7 +2005,8 @@ static void map_button_hint() {
 }
 
 static void map_all_buttons_hint() {
-	port_printf(8 * 8, 8 * 8,  "Remap all buttons at once");
+	port_printf(8 * 8, 8 * 8  , "Remap all buttons at once");
+	port_printf(8 * 8, 9 * 8+1, "    UP / DOWN to stop    ");
 }
 
 // input menu
@@ -2052,7 +2054,7 @@ static MENU gui_input_JSMenu = { SET_INPUT_JS_SIZE, 0, 56, 120, (MENUITEM *)&gui
 
 static char *psx_but_show(PSX_BUTTON button) {
 	static char buf[4] = "\0";
-	for(int i=0; i<MAX_JS_BUTTONS; i++) {
+	for(int i=0; i<PROFILE_LENGTH; i++) {
 		if(profiles[profile_being_edited][i] == button) {
 			sprintf(buf, "%d", i);
 			return buf;
@@ -2126,7 +2128,6 @@ static MENUITEM gui_profile_editItems[] = {
 static MENU gui_profile_editMenu = { SET_PROFILE_EDIT_SIZE, 0, 102, 92, (MENUITEM *)&gui_profile_editItems };
 
 
-
 static int gui_input_native() {
 	js_being_edited = 0;
 	gui_RunMenu(&gui_input_NativeMenu);
@@ -2180,15 +2181,13 @@ static uint16_t read_button_to_remap() {
 }
 
 static int remap_button(PSX_BUTTON button) {
-	uint16_t sdl_button;
-
 	// get the new button that will be mapped to this PSX action
-	sdl_button = read_button_to_remap();
+	uint16_t sdl_button = read_button_to_remap();
 	if(sdl_button == (uint16_t)-1)
 		return 0;
 
 	// remove all mappings to this button
-	for(int i=0; i<MAX_JS_BUTTONS; i++)
+	for(int i=0; i<PROFILE_LENGTH; i++)
 		if(profiles[profile_being_edited][i] == button)
 			profiles[profile_being_edited][i] = DKEY_NONE;
 
@@ -2198,36 +2197,51 @@ static int remap_button(PSX_BUTTON button) {
 	return 0;
 }
 
-static int profile_remap_all_buttons() {
-	uint16_t sdl_buttons[DKEY_TOTAL];
-	uint16_t sdl_button;
-	int i=0;
+void menu_refresh(MENU *menu) {
+	video_clear();
+	ShowMenu(menu);
+	video_flip();
+}
 
-	// get all buttons in the pressed order
-	// -4 because we don't remap d-pad
-	while(i < (DKEY_TOTAL-4)) {
-		sdl_button = read_button_to_remap();
-		if(sdl_button == (uint16_t)-1)
-			return 0;
-		sdl_buttons[i++] = sdl_button;
+static int profile_remap_all_buttons() {
+	int i=0;
+	uint16_t sdl_button;
+
+	enum PSX_BUTTON psx_buttons[] = {
+		DKEY_TRIANGLE,
+		DKEY_CIRCLE,
+		DKEY_CROSS,
+		DKEY_SQUARE,
+		DKEY_L1,
+		DKEY_R1,
+		DKEY_L2,
+		DKEY_R2,
+		DKEY_SELECT,
+		DKEY_START,
+		DKEY_L3,
+		DKEY_R3
+	};
+
+	// unmap all buttons
+	for(i=0; i < PROFILE_LENGTH; i++) {
+		profiles[profile_being_edited][i] = DKEY_NONE;
+	}
+	menu_refresh(&gui_profile_editMenu);
+
+	// remap all buttons
+	// 12 because we don't remap d-pad
+	for(i=0; i < 12; i++) {
+        sdl_button = read_button_to_remap();
+        if(sdl_button == (uint16_t)-1) {
+			break;
+		}
+		profiles[profile_being_edited][sdl_button] = psx_buttons[i];
+		menu_refresh(&gui_profile_editMenu);
 	}
 
-	// remap all buttons now
-	i = 0;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_TRIANGLE;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_CIRCLE;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_CROSS;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_SQUARE;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_L1;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_R1;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_L2;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_R2;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_SELECT;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_START;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_L3;
-	profiles[profile_being_edited][sdl_buttons[i++]] = DKEY_R3;
-
+	// persist config and clear screen to return to normal menu
 	controller_profile_save(profile_being_edited, profiles[profile_being_edited]);
+	video_clear();
 	return 0;
 }
 
