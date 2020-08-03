@@ -664,7 +664,7 @@ static uint16_t pad_buttons[2] = {0xFFFF, 0xFFFF};
 static unsigned short analogs[2] = {0, 0};
 
 // analog range: -32768 to 32767
-#define joy_commit_range    8192
+#define ANALOG_MAX_VALUE 32768
 enum {
 	ANALOG_UP = 1,
 	ANALOG_DOWN = 2,
@@ -747,6 +747,7 @@ void pad_update()
 	uint_fast8_t i;
 	Ps1Controller *js;
 	uint8_t button;
+	int joy_commit_range;
 
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
@@ -799,6 +800,7 @@ void pad_update()
 		case SDL_JOYAXISMOTION:
 			js = &controllers[event.jaxis.which];
 			axisval = event.jaxis.value;
+			joy_commit_range = ANALOG_MAX_VALUE*js->analog_deadzone/100;
 
 			pad_buttons[js->player] |= (1 << DKEY_UP);
 			pad_buttons[js->player] |= (1 << DKEY_DOWN);
