@@ -54,6 +54,7 @@ static int sshot_img_num;   // Which slot above image is loaded for
 static u32 ret = 0;
 
 static uint8_t profile_being_edited;
+static uint8_t js_being_edited;
 
 static inline void key_reset() { ret = 0; }
 
@@ -458,8 +459,9 @@ static int gui_Cheats();
 static int gui_Quit();
 static int gui_input_native();
 static int gui_input_hotkeys();
-static int gui_input_js1();
-static int gui_input_js2();
+static int gui_input_js(uint8_t js_id);
+static int gui_input_js1() { return gui_input_js(1); }
+static int gui_input_js2() { return gui_input_js(2); }
 static int gui_profiles();
 static int gui_profile_edit(uint8_t profile_id);
 static int gui_profile_edit0() { return gui_profile_edit(0); }
@@ -473,7 +475,8 @@ static int gui_profile_edit7() { return gui_profile_edit(7); }
 static int gui_profile_edit8() { return gui_profile_edit(8); }
 static int gui_profile_edit9() { return gui_profile_edit(9); }
 static int remap_button(PSX_BUTTON button);
-static int remap_all_buttons();
+static int profile_remap_all_buttons();
+static int profile_reset_to_default();
 
 static int gui_Credits()
 {
@@ -1936,7 +1939,8 @@ static MENU gui_SPUSettingsMenu = { SET_SPUSIZE, 0, 56, 102, (MENUITEM *)&gui_SP
 
 /***** input settings *****/
 
-static int js_profile_change(int js, u32 keys) {
+static int js_profile_change(u32 keys) {
+	uint8_t js = js_being_edited;
 	if ((keys & KEY_RIGHT) && (controllers[js].profile_id < MAX_JS_PROFILES-1)) {
 		controllers[js].profile_id += 1;
 	} else if ((keys & KEY_LEFT) && (controllers[js].profile_id > 0)) {
@@ -1945,18 +1949,12 @@ static int js_profile_change(int js, u32 keys) {
 	controller_config_save(js);
 	return 0;
 }
-static int js0_profile_change(u32 keys) { return js_profile_change(0, keys); }
-static int js1_profile_change(u32 keys) { return js_profile_change(1, keys); }
-static int js2_profile_change(u32 keys) { return js_profile_change(2, keys); }
 
-static char *js_profile_show(int js) {
+static char *js_profile_show() {
 	static char buf[4] = "\0";
-	sprintf(buf, "%d", controllers[js].profile_id);
+	sprintf(buf, "%d", controllers[js_being_edited].profile_id);
 	return buf;
 }
-static char *js0_profile_show() { return js_profile_show(0); }
-static char *js1_profile_show() { return js_profile_show(1); }
-static char *js2_profile_show() { return js_profile_show(2); }
 
 static void js_profile_hint() {
 	port_printf(6 * 8, 9 * 8,  "If you want to remap buttons,");
@@ -1964,7 +1962,8 @@ static void js_profile_hint() {
 }
 
 
-static int js_deadzone_change(int js, u32 keys) {
+static int js_deadzone_change(u32 keys) {
+	uint8_t js = js_being_edited;
 	if ((keys & KEY_RIGHT) && (controllers[js].analog_deadzone < 100)) {
 		controllers[js].analog_deadzone += 5;
 	} else if ((keys & KEY_LEFT) && (controllers[js].analog_deadzone > 0)) {
@@ -1974,43 +1973,28 @@ static int js_deadzone_change(int js, u32 keys) {
 	return 0;
 }
 
-static char *js_deadzone_show(int js) {
+static char *js_deadzone_show() {
 	static char buf[5] = "\0";
-	sprintf(buf, "%d%%", controllers[js].analog_deadzone);
+	sprintf(buf, "%d%%", controllers[js_being_edited].analog_deadzone);
 	return buf;
 }
-
-static int js0_deadzone_change(u32 keys) { return js_deadzone_change(0, keys); }
-static int js1_deadzone_change(u32 keys) { return js_deadzone_change(1, keys); }
-static int js2_deadzone_change(u32 keys) { return js_deadzone_change(2, keys); }
-
-static char *js0_deadzone_show() { return js_deadzone_show(0); }
-static char *js1_deadzone_show() { return js_deadzone_show(1); }
-static char *js2_deadzone_show() { return js_deadzone_show(2); }
 
 static void js_deadzone_hint() {
 	port_printf(6 * 8, 10 * 8, "Not implemented yet");
 }
 
-static int js_player_change(int js, u32 keys) {
+static int js_player_change(u32 keys) {
+	uint8_t js = js_being_edited;
 	controllers[js].player = (controllers[js].player) ? 0 : 1;
 	controller_config_save(js);
 	return 0;
 }
 
-static char *js_player_show(int js) {
+static char *js_player_show() {
 	static char buf[4] = "\0";
-	sprintf(buf, "%d", controllers[js].player+1);
+	sprintf(buf, "%d", controllers[js_being_edited].player+1);
 	return buf;
 }
-
-static int js0_player_change(u32 keys) { return js_player_change(0, keys); }
-static int js1_player_change(u32 keys) { return js_player_change(1, keys); }
-static int js2_player_change(u32 keys) { return js_player_change(2, keys); }
-
-static char *js0_player_show() { return js_player_show(0); }
-static char *js1_player_show() { return js_player_show(1); }
-static char *js2_player_show() { return js_player_show(2); }
 
 
 static void map_button_hint() {
@@ -2019,29 +2003,28 @@ static void map_button_hint() {
 }
 
 static void map_all_buttons_hint() {
-	port_printf(3 * 8, 8 * 8,  "   Or remap all buttons at once");
-	port_printf(3 * 8, 9 * 8,  "(no visual feedback until the end)");
+	port_printf(8 * 8, 8 * 8,  "Remap all buttons at once");
 }
 
 // input menu
 static MENUITEM gui_InputItems[] = {
   {(char *)"Native buttons", &gui_input_native, NULL, NULL, NULL},
+  {(char *)"USB gamepad 1", &gui_input_js1, NULL, NULL, NULL},
+  {(char *)"USB gamepad 2", &gui_input_js2, NULL, NULL, NULL},
+  {(char *)"Profiles", &gui_profiles, NULL, NULL, NULL},
   {(char *)"Hotkeys", &gui_input_hotkeys, NULL, NULL, NULL},
-  {(char *)"Gamepad 1", &gui_input_js1, NULL, NULL, NULL},
-  {(char *)"Gamepad 2", &gui_input_js2, NULL, NULL, NULL},
-  {(char *)"Remap buttons", &gui_profiles, NULL, NULL, NULL},
-	{0}
+  {0}
 };
 #define SET_INPUT_SIZE ((sizeof(gui_InputItems) / sizeof(MENUITEM)) - 1)
 static MENU gui_InputMenu = { SET_INPUT_SIZE, 0, 102, 120, (MENUITEM *)&gui_InputItems };
 
 // native buttons menu
 static MENUITEM gui_input_NativeItems[] = {
-	{(char *)"Player               ", NULL, &js0_player_change, &js0_player_show, NULL},
+	{(char *)"Player               ", NULL, &js_player_change, &js_player_show, NULL},
+	{(char *)"Button profile       ", NULL, &js_profile_change, &js_profile_show, &js_profile_hint},
 	{(char *)"Map L-stick to Dpad  ", NULL, &AnalogArrow_alter, &AnalogArrow_show, &AnalogArrow_hint},
 	{(char *)"Analog Mode          ", NULL, &Analog_Mode_alter, &Analog_Mode_show, &Analog_Mode_hint},
-	{(char *)"Analogs deadzone     ", NULL, &js0_deadzone_change, &js0_deadzone_show, &js_deadzone_hint},
-	{(char *)"Button profile       ", NULL, &js0_profile_change, &js0_profile_show, &js_profile_hint},
+	{(char *)"Analogs deadzone     ", NULL, &js_deadzone_change, &js_deadzone_show, &js_deadzone_hint},
 	{0}
 };
 #define SET_INPUT_NATIVE_SIZE ((sizeof(gui_input_NativeItems) / sizeof(MENUITEM)) - 1)
@@ -2050,30 +2033,20 @@ static MENU gui_input_NativeMenu = { SET_INPUT_NATIVE_SIZE, 0, 56, 120, (MENUITE
 // hotkeys menu
 static MENUITEM gui_input_HotkeysItems[] = {
   {(char *)"Not implemented yet", NULL, NULL, NULL, NULL},
-	{0}
+  {0}
 };
 #define SET_INPUT_HOTKEYS_SIZE ((sizeof(gui_input_HotkeysItems) / sizeof(MENUITEM)) - 1)
 static MENU gui_input_HotkeysMenu = { SET_INPUT_HOTKEYS_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_HotkeysItems };
 
-// external joystick js1 menu
-static MENUITEM gui_input_JS1Items[] = {
-	{(char *)"Player            ", NULL, &js1_player_change, &js1_player_show, NULL},
-	{(char *)"Analogs deadzone  ", NULL, &js1_deadzone_change, &js1_deadzone_show, &js_deadzone_hint},
-	{(char *)"Button profile    ", NULL, &js1_profile_change, &js1_profile_show, &js_profile_hint},
+// USB gamepad 1 and 2 menus
+static MENUITEM gui_input_JSItems[] = {
+	{(char *)"Player            ", NULL, &js_player_change, &js_player_show, NULL},
+	{(char *)"Button profile    ", NULL, &js_profile_change, &js_profile_show, &js_profile_hint},
+	{(char *)"Analogs deadzone  ", NULL, &js_deadzone_change, &js_deadzone_show, &js_deadzone_hint},
 	{0}
 };
-#define SET_INPUT_JS1_SIZE ((sizeof(gui_input_JS1Items) / sizeof(MENUITEM)) - 1)
-static MENU gui_input_JS1Menu = { SET_INPUT_JS1_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_JS1Items };
-
-// external joystick js2 menu
-static MENUITEM gui_input_JS2Items[] = {
-	{(char *)"Player            ", NULL, &js2_player_change, &js2_player_show, NULL},
-	{(char *)"Analogs deadzone  ", NULL, &js2_deadzone_change, &js2_deadzone_show, &js_deadzone_hint},
-	{(char *)"Button profile    ", NULL, &js2_profile_change, &js2_profile_show, &js_profile_hint},
-	{0}
-};
-#define SET_INPUT_JS2_SIZE ((sizeof(gui_input_JS2Items) / sizeof(MENUITEM)) - 1)
-static MENU gui_input_JS2Menu = { SET_INPUT_JS2_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_JS2Items };
+#define SET_INPUT_JS_SIZE ((sizeof(gui_input_JSItems) / sizeof(MENUITEM)) - 1)
+static MENU gui_input_JSMenu = { SET_INPUT_JS_SIZE, 0, 56, 120, (MENUITEM *)&gui_input_JSItems };
 
 
 static char *psx_but_show(PSX_BUTTON button) {
@@ -2144,7 +2117,8 @@ static MENUITEM gui_profile_editItems[] = {
 	{(char *)"PSX Start     ", &psx_but_map_start, NULL, &psx_but_show_start, &map_button_hint},
 	{(char *)"PSX L3        ", &psx_but_map_L3, NULL, &psx_but_show_L3, &map_button_hint},
 	{(char *)"PSX R3        ", &psx_but_map_R3, NULL, &psx_but_show_R3, &map_button_hint},
-	{(char *)"Remap all buttons", &remap_all_buttons, NULL, NULL, &map_all_buttons_hint},
+	{(char *)"Remap all buttons", &profile_remap_all_buttons, NULL, NULL, &map_all_buttons_hint},
+	{(char *)"Restore defaults ", &profile_reset_to_default, NULL, NULL, NULL},
 	{0}
 };
 #define SET_PROFILE_EDIT_SIZE ((sizeof(gui_profile_editItems) / sizeof(MENUITEM)) - 1)
@@ -2153,6 +2127,7 @@ static MENU gui_profile_editMenu = { SET_PROFILE_EDIT_SIZE, 0, 102, 92, (MENUITE
 
 
 static int gui_input_native() {
+	js_being_edited = 0;
 	gui_RunMenu(&gui_input_NativeMenu);
 	return 0;
 }
@@ -2162,13 +2137,9 @@ static int gui_input_hotkeys() {
 	return 0;
 }
 
-static int gui_input_js1() {
-	gui_RunMenu(&gui_input_JS1Menu);
-	return 0;
-}
-
-static int gui_input_js2() {
-	gui_RunMenu(&gui_input_JS2Menu);
+static int gui_input_js(uint8_t js_id) {
+	js_being_edited = js_id;
+	gui_RunMenu(&gui_input_JSMenu);
 	return 0;
 }
 
@@ -2209,7 +2180,7 @@ static int remap_button(PSX_BUTTON button) {
 	return 0;
 }
 
-static int remap_all_buttons() {
+static int profile_remap_all_buttons() {
 	SDL_Event event;
 	uint16_t sdl_buttons[DKEY_TOTAL];
 	int i=0;
@@ -2245,6 +2216,10 @@ static int remap_all_buttons() {
 	return 0;
 }
 
+static int profile_reset_to_default() {
+	controller_profile_set_to_default(profile_being_edited);
+	return 0;
+}
 
 /***** Main Menu settings *****/
 

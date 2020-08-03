@@ -62,6 +62,8 @@ enum PSX_BUTTON {
 	DKEY_NONE
 };
 
+
+
 // enum {
 // 	DKEY_TRIANGLE = 0,
 // 	DKEY_CIRCLE,
@@ -82,6 +84,7 @@ enum PSX_BUTTON {
 
 // 	DKEY_TOTAL
 // };
+
 
 ///////////////////////////
 // Windows compatibility //
@@ -118,6 +121,7 @@ void controller_config_load(int js_id);
 void controller_config_save(int js_id);
 void controller_profile_load(int js_id);
 void controller_profile_save(int profile_id, uint8_t *but_map);
+void controller_profile_set_to_default(int profile_id);
 
 void update_memcards(int load_mcd);
 const char *bios_file_get();

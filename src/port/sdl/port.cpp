@@ -175,26 +175,7 @@ static void setup_paths()
 	for(int i = 0; i < MAX_JS_PROFILES; i++) {
 		sprintf(fname, "%s/profile%d.cfg", profilesdir, i);
 		if(access(fname, F_OK) == -1) {
-			// default configuration: button 0 = triangle, button 1 = circle ...
-			uint_least8_t profile[] = {
-				DKEY_TRIANGLE,
-				DKEY_CIRCLE,
-				DKEY_CROSS,
-				DKEY_SQUARE,
-				DKEY_L1,
-				DKEY_R1,
-				DKEY_L2,
-				DKEY_R2,
-				DKEY_SELECT,
-				DKEY_START,
-				DKEY_L3,
-				DKEY_R3,
-				DKEY_UP,
-				DKEY_RIGHT,
-				DKEY_DOWN,
-				DKEY_LEFT
-			};
-			controller_profile_save(i, profile);
+			controller_profile_set_to_default(i);
 		}
 	}
 }
@@ -266,6 +247,32 @@ void controller_profile_save(int profile_id, uint8_t *profile) {
 	}
 
     fclose(f);
+}
+
+void controller_profile_set_to_default(int profile_id){
+	// default configuration: button 0 = triangle, button 1 = circle ...
+	uint_least8_t default_profile[] = {
+		DKEY_TRIANGLE,
+		DKEY_CIRCLE,
+		DKEY_CROSS,
+		DKEY_SQUARE,
+		DKEY_L1,
+		DKEY_R1,
+		DKEY_L2,
+		DKEY_R2,
+		DKEY_SELECT,
+		DKEY_START,
+		DKEY_L3,
+		DKEY_R3,
+		DKEY_UP,
+		DKEY_RIGHT,
+		DKEY_DOWN,
+		DKEY_LEFT
+	};
+	for(int i=0; i<MAX_JS_BUTTONS; i++) {
+		profiles[profile_id][i] = default_profile[i];
+	}
+	controller_profile_save(profile_id, default_profile);
 }
 
 void controller_config_load(int js_id) {
@@ -1805,3 +1812,4 @@ void port_printf(int x, int y, const char *text)
 		screen += 8;
 	}
 }
+
