@@ -264,10 +264,10 @@ void controller_profile_set_to_default(int profile_id){
 		DKEY_START,
 		DKEY_L3,
 		DKEY_R3,
-		DKEY_UP,
-		DKEY_RIGHT,
-		DKEY_DOWN,
-		DKEY_LEFT
+		DKEY_NONE,
+		DKEY_NONE,
+		DKEY_NONE,
+		DKEY_NONE
 	};
 
 	for(int i=0; i<MAX_JS_BUTTONS; i++) {
@@ -748,6 +748,7 @@ void pad_update()
 	Ps1Controller *js;
 	uint8_t button;
 	int joy_commit_range;
+	SDLKey k;
 
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
@@ -758,6 +759,7 @@ void pad_update()
 		// get native buttons press
 		case SDL_KEYDOWN:
 			js = &controllers[0];
+			k = event.key.keysym.sym;
 			switch (event.key.keysym.sym) {
 			case SDLK_HOME:
 			case SDLK_F10:
@@ -776,7 +778,13 @@ void pad_update()
 				for (i = 0; i < DKEY_TOTAL; i++)
 					if (event.key.keysym.sym == keymap[i].key)
 					{
-						button = profiles[js->profile_id][keymap[i].bit];
+						if(k==SDLK_UP || k==SDLK_DOWN || k==SDLK_LEFT || k==SDLK_RIGHT) {
+							// d-pad, skip mapping
+							button = keymap[i].bit;
+						} else {
+							// other keys, get mapped button from profile
+							button = profiles[js->profile_id][keymap[i].bit];
+						}
 						pad_buttons[js->player] &= ~(1 << button);
 						break;
 					}
@@ -790,7 +798,13 @@ void pad_update()
 			for (i = 0; i < DKEY_TOTAL; i++)
 				if (event.key.keysym.sym == keymap[i].key)
 				{
-					button = profiles[js->profile_id][keymap[i].bit];
+					if(k==SDLK_UP || k==SDLK_DOWN || k==SDLK_LEFT || k==SDLK_RIGHT) {
+						// d-pad, skip mapping
+						button = keymap[i].bit;
+					} else {
+						// other keys, get mapped button from profile
+						button = profiles[js->profile_id][keymap[i].bit];
+					}
 					pad_buttons[js->player] |= (1 << button);
 					break;
 				}
@@ -862,10 +876,10 @@ void pad_update()
 			pad_buttons[js->player] |= (1 << DKEY_LEFT);
 			pad_buttons[js->player] |= (1 << DKEY_RIGHT);
 			// get pressed direction(s)
-			if (event.jhat.value & SDL_HAT_UP)    pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][12]);
-			if (event.jhat.value & SDL_HAT_RIGHT) pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][13]);
-			if (event.jhat.value & SDL_HAT_DOWN)  pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][14]);
-			if (event.jhat.value & SDL_HAT_LEFT)  pad_buttons[js->player] &= ~(1 << profiles[js->profile_id][15]);
+			if (event.jhat.value & SDL_HAT_UP)    pad_buttons[js->player] &= ~(1 << DKEY_UP);
+			if (event.jhat.value & SDL_HAT_DOWN)  pad_buttons[js->player] &= ~(1 << DKEY_DOWN);
+			if (event.jhat.value & SDL_HAT_LEFT)  pad_buttons[js->player] &= ~(1 << DKEY_LEFT);
+			if (event.jhat.value & SDL_HAT_RIGHT) pad_buttons[js->player] &= ~(1 << DKEY_RIGHT);
 			break;
 		default: break;
 		}
