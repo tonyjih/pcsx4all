@@ -795,6 +795,7 @@ void pad_update()
 		// native buttons release
 		case SDL_KEYUP:
 			js = &controllers[0];
+			k = event.key.keysym.sym;
 			for (i = 0; i < DKEY_TOTAL; i++)
 				if (event.key.keysym.sym == keymap[i].key)
 				{
